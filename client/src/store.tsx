@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, getToken, setToken, type Account, type Category, type User } from './api';
+import { api, ApiError, cacheUser, getCachedUser, getToken, setToken, type Account, type Category, type User } from './api';
 import { currentMonth } from './format';
 
 type Store = {
@@ -42,14 +42,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((token: string, u: User) => {
     setToken(token);
+    cacheUser(u);
     setUser(u);
   }, []);
 
-  // restauration de session
+  // restauration de session ; hors ligne, on garde le dernier utilisateur connu
   useEffect(() => {
     if (!getToken()) { setReady(true); return; }
-    api.get<User>('/me').then(setUser).catch(() => setToken(null)).finally(() => setReady(true));
+    api.get<User>('/me')
+      .then((u) => { cacheUser(u); setUser(u); })
+      .catch((err) => {
+        if (err instanceof ApiError) setToken(null);
+        else setUser(getCachedUser());
+      })
+      .finally(() => setReady(true));
   }, []);
+
+  // retour du réseau : on recharge tout
+  useEffect(() => {
+    window.addEventListener('online', refresh);
+    return () => window.removeEventListener('online', refresh);
+  }, [refresh]);
 
   useEffect(() => {
     window.addEventListener('auth:logout', logout);

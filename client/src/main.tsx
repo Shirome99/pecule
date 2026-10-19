@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Accounts from './pages/Accounts';
+import OfflineBanner from './components/OfflineBanner';
 
 function App() {
   const { user, ready } = useStore();
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <StoreProvider>
+        <OfflineBanner />
         <App />
       </StoreProvider>
     </BrowserRouter>

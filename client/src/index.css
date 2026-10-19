@@ -49,6 +49,12 @@ button, input, select { font: inherit; color: inherit; }
 .in { color: var(--in); }
 .out { color: var(--out); }
 
+/* ---------- hors ligne ---------- */
+.offline-banner {
+  position: sticky; top: 0; z-index: 60; padding: 0.6rem 1rem; padding-top: calc(0.6rem + env(safe-area-inset-top));
+  background: var(--warn); color: #1a1408; font-weight: 600; font-size: 0.9rem; text-align: center;
+}
+
 /* ---------- shell ---------- */
 .shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100dvh; }
 .sidebar {

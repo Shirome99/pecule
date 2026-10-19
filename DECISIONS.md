@@ -57,3 +57,15 @@ seulement le format.
 - Les tests du parseur tournent avec Playwright (sans navigateur), pour ne pas ajouter vitest au client.
 - `docs/exemple-releve.csv` : relevé fictif en Windows-1252 avec colonnes débit / crédit, pour essayer l'import.
 **Écarté** : parser côté serveur (demandé côté client), import OFX (hors périmètre).
+
+## 2026-10-19 — PWA
+**Choix** :
+- Icônes PNG générées par un script (`client/scripts/generate-icons.mjs`) qui réutilise le Chromium de Playwright, et
+  versionnées dans `public/` : le build ne dépend pas de ce script.
+- Hors ligne, la session n'est plus effacée : seul un vrai 401 déconnecte ; une erreur réseau garde le dernier utilisateur
+  connu (`localStorage`). L'API n'est jamais mise en cache par le service worker (pas de données périmées affichées).
+- Vérification : `Page.getInstallabilityErrors` (CDP) renvoie toujours `[]` en headless, même sans manifest (contre-test
+  fait) ; le test vérifie donc explicitement les critères d'installation de Chrome (manifest complet, icônes 192/512 PNG
+  servies, service worker actif qui contrôle la page et gère `fetch`). Lighthouse non utilisé (nouvelle dépendance lourde).
+- `npm run test:e2e` lance d'abord `vite build` : le projet `pwa` teste le vrai build servi par Express.
+**Écarté** : `@vite-pwa/assets-generator` (dépend de sharp, binaire natif) ; mise en cache des réponses API.

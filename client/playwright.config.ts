@@ -11,8 +11,10 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: `http://localhost:${WEB_PORT}`, locale: 'fr-FR', timezoneId: 'Europe/Paris' },
   projects: [
-    { name: 'desktop', use: { browserName: 'chromium', viewport: { width: 1366, height: 900 } } },
-    { name: 'mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    { name: 'desktop', testIgnore: /pwa\.spec/, use: { browserName: 'chromium', viewport: { width: 1366, height: 900 } } },
+    { name: 'mobile', testIgnore: /pwa\.spec/, use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    // PWA : build de production (client/dist) servi par Express, comme en prod
+    { name: 'pwa', testMatch: /pwa\.spec/, use: { browserName: 'chromium', baseURL: `http://localhost:${API_PORT}`, viewport: { width: 390, height: 844 } } },
   ],
   webServer: [
     {

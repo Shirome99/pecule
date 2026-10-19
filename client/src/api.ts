@@ -1,9 +1,18 @@
 // Client HTTP minimal : ajoute le token, gère les erreurs et la déconnexion.
 const TOKEN_KEY = 'pecule_token';
+const USER_KEY = 'pecule_user';
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
-export const setToken = (t: string | null) =>
-  t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+export const setToken = (t: string | null) => {
+  if (t) localStorage.setItem(TOKEN_KEY, t);
+  else { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); }
+};
+
+/** Dernier utilisateur connu : permet d'ouvrir l'app hors ligne. */
+export const getCachedUser = (): User | null => {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) ?? 'null'); } catch { return null; }
+};
+export const cacheUser = (u: User) => localStorage.setItem(USER_KEY, JSON.stringify(u));
 
 export class ApiError extends Error {
   status: number;
