@@ -56,4 +56,12 @@ function addMonths(date, n, day = Number(date.slice(8, 10))) {
 /** Nombre de jours entre deux dates AAAA-MM-JJ (b − a). */
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 
-module.exports = { pad, iso, daysIn, localToday, occurrences, addMonths, daysBetween };
+/** Les n mois (AAAA-MM) qui se terminent par `month`, du plus ancien au plus récent. */
+function lastMonths(month, n) {
+  const [y, m] = month.split('-').map(Number);
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) out.push(new Date(Date.UTC(y, m - 1 - i, 1)).toISOString().slice(0, 7));
+  return out;
+}
+
+module.exports = { pad, iso, daysIn, localToday, occurrences, addMonths, daysBetween, lastMonths };

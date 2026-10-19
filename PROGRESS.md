@@ -29,6 +29,8 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   Dépôt git + `.gitignore`. Serveur : vitest + supertest (`npm test`, base `:memory:`), 13 tests couvrant auth,
   refus sans token, CRUD opérations, isolation entre utilisateurs, soldes, stats, budgets, export CSV.
   Client : Playwright (`npm run test:e2e`) lance son propre serveur sur une base `e2e.db` réinitialisée, scénario dépense en 1366×900 et 390×844.
+  Découpage (3e feuille de route) : `index.js` ne garde que la config ; helpers dans `src/lib.js`, virements dans `src/transfers.js`,
+  un routeur par domaine dans `src/routes/` (chemins identiques), mois glissants dans `dates.js`. Test `structure.test.js` : aucune route perdue.
 - [x] **Tâche 1 — Virements entre comptes**
   Colonne `transfer_id` (migration idempotente), `POST/PUT/DELETE /api/transfers`, et `PUT/DELETE /api/transactions/:id`
   répercutés sur les deux lignes. Virements exclus des revenus/dépenses/répartition/tendance/budgets, inclus dans les soldes.
@@ -73,3 +75,13 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   `helmet` + CSP ; 6e tentative de connexion en une minute → 429 (testé) ; CORS limité à `CORS_ORIGIN` en prod ; README à jour.
   Docker est hors périmètre dans cette feuille de route : le `Dockerfile` et le `docker-compose.yml` écrits lors de la version
   précédente sont conservés tels quels, **non vérifiés** (Docker absent de la machine).
+
+## Phase 2 — Améliorations
+
+- [ ] **Tâche 10 — Finitions UX et performance**
+- [ ] **Tâche 11 — Règles de catégorisation et tags**
+- [ ] **Tâche 12 — Comparaisons automatiques (insights)**
+- [ ] **Tâche 13 — Calendrier et vue annuelle**
+- [ ] **Tâche 14 — Récap mensuel imprimable**
+- [ ] **Tâche 15 — Dépenses partagées**
+- [ ] **Tâche 16 — Fonctions IA (facultatives, avec l'API Claude)**

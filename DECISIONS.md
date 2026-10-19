@@ -141,3 +141,10 @@ sont plus annoncés comme vérifiés) plutôt que supprimer des fichiers qui fon
   Le patrimoine net est une ligne couleur encre, les dettes une aire sous zéro, une seule échelle.
 - `valuations` et `loans` portent un `user_id` pour vérifier la propriété avec `owns()` comme le reste de l'API.
 **Écarté** : cotations automatiques (API externe, hors périmètre) ; ventiler chaque mensualité en intérêts et capital.
+
+## 2026-10-19 — Découpage du serveur (tâche 0, 3e feuille de route)
+**Choix** : chaque routeur (`src/routes/*.js`) déclare ses chemins complets (`/api/...`) et est monté par `app.use(router)` :
+les URL restent identiques à l'octet près, y compris celles qui croisent les domaines (`/api/accounts/:id/loan` est dans
+`routes/wealth.js`). Domaines en plus de ceux demandés : wealth, transfers, recurring, forecast, subscriptions, goals.
+`saveTransfer` (accès base) va dans `src/transfers.js`, partagé par les routes opérations et virements.
+**Écarté** : monter les routeurs sous un préfixe (`app.use('/api/accounts', …)`) qui aurait obligé à déplacer des routes.
