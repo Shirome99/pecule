@@ -217,3 +217,16 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
   mois. Taux d'épargne = (revenus − dépenses) / revenus, `null` sans revenu. Lien « Vue annuelle » dans le panneau
   « Six derniers mois » de l'Aperçu. Pas d'année future.
 **Écarté** : un graphique Recharts de plus sur la vue annuelle (le tableau répond déjà à la question, et garde la page légère).
+
+## 2026-10-19 — Récap mensuel (tâche 14)
+**Choix** :
+- Le récap assemble côté client des routes existantes (stats du mois et du précédent, budgets, patrimoine, abonnements,
+  objectifs, constats) : pas de route dédiée, donc aucun chiffre calculé deux fois.
+- « Nouvel abonnement » : sa première échéance repérée tombe dans le mois du récap ou les deux précédents (il faut 3 mois
+  pour reconnaître un abonnement mensuel). La détection est celle d'aujourd'hui : pour un vieux mois, c'est une approximation.
+  « Hausse de prix » : `price_change.date` dans le mois. Ajout de `first_date` à la détection.
+- Objectifs : avancement actuel (pas d'historique des objectifs). Évolution des catégories : vs le mois précédent.
+- Impression : tokens clairs forcés dans `@media print` (un PDF sombre gaspille l'encre), `print-color-adjust: exact`
+  pour garder barres et couleurs, `break-inside: avoid` sur chaque bloc.
+- Test du nombre de pages : comptage des objets `/Type /Page` du PDF produit par `page.pdf()` (pas de dépendance PDF).
+- Bannière : basée sur la date du navigateur (le test la fixe avec `page.clock`).

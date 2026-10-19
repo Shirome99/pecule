@@ -143,7 +143,7 @@ export type Forecast = {
 export type Subscription = {
   key: string; label: string; frequency: 'monthly' | 'yearly'; amount: number; annual_cost: number;
   category_id: number | null; category_name: string | null; category_icon: string | null; category_color: string | null;
-  account_id: number | null; account_name: string | null; occurrences: number; last_date: string; next_date: string;
+  account_id: number | null; account_name: string | null; occurrences: number; first_date: string; last_date: string; next_date: string;
   price_change: { old_amount: number; new_amount: number; date: string } | null;
 };
 export type Subscriptions = { items: Subscription[]; monthly_total: number; annual_total: number };

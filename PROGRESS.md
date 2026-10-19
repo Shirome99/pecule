@@ -98,6 +98,10 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   total par jour sur desktop, détail du jour en dessous (desktop) ou en panneau bas (mobile). Module pur `src/yearly.js` +
   `GET /api/stats/year` ; page « Vue annuelle » (depuis l'Aperçu) : 4 chiffres clés, tableau catégories × mois à colonne
   fixe, top 5. Test : totaux annuels = somme des 12 `/api/stats` (y compris par catégorie). 3 tests API + 2 e2e.
-- [ ] **Tâche 14 — Récap mensuel imprimable**
+- [x] **Tâche 14 — Récap mensuel imprimable**
+  Page `/recap/:month` : chiffres clés (revenus, dépenses, épargne, taux, patrimoine net et variation), constats, top 5 des
+  catégories vs mois précédent, budgets tenus/dépassés, nouveaux abonnements et hausses, objectifs. Feuille `@media print`
+  (A4, toujours en clair, sans navigation ni bouton, blocs insécables) ; « Télécharger en PDF » = `window.print()`.
+  Bannière du 1er au 5 du mois sur l'Aperçu, lien « Voir le récap » pour un mois passé. 2 e2e (`page.pdf()` ≤ 2 pages, clair et sombre).
 - [ ] **Tâche 15 — Dépenses partagées**
 - [ ] **Tâche 16 — Fonctions IA (facultatives, avec l'API Claude)**

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Budget, type Forecast, type Goal, type Stats, type Transaction } from '../api';
 import { useStore } from '../store';
-import { currentMonth, money, moneyRound, monthLabel, signed } from '../format';
+import { currentMonth, money, moneyRound, monthLabel, shiftMonth, signed } from '../format';
 import MonthPicker from '../components/MonthPicker';
 import TxRow from '../components/TxRow';
 import BudgetBar from '../components/BudgetBar';
@@ -44,6 +44,19 @@ export default function Dashboard() {
         <h1>Bonjour {user?.name}</h1>
         <MonthPicker />
       </header>
+
+      {/* du 1er au 5 du mois, le récap du mois précédent ; pour un mois passé, son récap */}
+      {month === currentMonth() && new Date().getDate() <= 5 ? (
+        <Link to={`/recap/${shiftMonth(month, -1)}`} className="recap-banner">
+          <span>Ton récap de {monthLabel(shiftMonth(month, -1)).split(' ')[0].toLowerCase()} est prêt</span>
+          <span aria-hidden>›</span>
+        </Link>
+      ) : month < currentMonth() && (
+        <Link to={`/recap/${month}`} className="recap-banner subtle">
+          <span>Voir le récap de {monthLabel(month).toLowerCase()}</span>
+          <span aria-hidden>›</span>
+        </Link>
+      )}
 
       {/* L'élément fort : le reste du mois + où est passé l'argent */}
       <section className="hero" aria-label="Résumé du mois">

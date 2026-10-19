@@ -103,6 +103,7 @@ function detectSubscriptions(transactions, { now, ignored = new Set(), tracked =
       category_id: mostFrequent(occ.map((o) => o.category_id)),
       account_id: mostFrequent(occ.map((o) => o.account_id)),
       occurrences: occ.length,
+      first_date: all[0].date, // plus ancienne échéance connue (fenêtre de 760 jours)
       last_date: last.date,
       next_date: addMonths(last.date, frequency === 'monthly' ? 1 : 12),
       price_change: priceChange(occ),

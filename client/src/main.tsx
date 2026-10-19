@@ -21,6 +21,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Rules = lazy(() => import('./pages/Rules'));
 const TagPage = lazy(() => import('./pages/TagPage'));
 const Year = lazy(() => import('./pages/Year'));
+const Recap = lazy(() => import('./pages/Recap'));
 
 applyTheme();
 
@@ -41,6 +42,7 @@ function App() {
         <Route path="reglages/regles" element={<Rules />} />
         <Route path="tags/:name" element={<TagPage />} />
         <Route path="annee" element={<Year />} />
+        <Route path="recap/:month" element={<Recap />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

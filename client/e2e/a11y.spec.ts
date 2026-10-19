@@ -5,7 +5,7 @@ import { loginDemo } from './helpers';
 const PAGES = [
   ['Aperçu', '/'], ['Opérations', '/transactions'], ['Budgets', '/budgets'], ['Comptes', '/comptes'],
   ['Abonnements', '/abonnements'], ['Patrimoine', '/patrimoine'], ['Réglages', '/reglages'],
-  ['Règles', '/reglages/regles'], ['Tag', '/tags/week-end-lyon'], ['Vue annuelle', '/annee'],
+  ['Règles', '/reglages/regles'], ['Tag', '/tags/week-end-lyon'], ['Vue annuelle', '/annee'], ['Récap', `/recap/${new Date(new Date().getFullYear(), new Date().getMonth() - 1, 15).toISOString().slice(0, 7)}`],
 ] as const;
 
 for (const theme of ['light', 'dark'] as const) {
