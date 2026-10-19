@@ -448,3 +448,15 @@ button.budget:hover { border-color: var(--ink-2); }
 .tag { display: inline-flex; align-items: center; gap: 0.1rem; padding: 0.15rem 0.2rem 0.15rem 0.6rem; border-radius: 999px; background: var(--wash); font-size: 0.85rem; font-weight: 500; }
 .tag .chip-x { width: 28px; height: 28px; }
 .tx-tag { color: var(--ink); font-weight: 500; }
+
+/* ---------- constats ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.insights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.insight { display: flex; gap: 0.85rem; padding: 0.7rem 0; align-items: flex-start; }
+.insight + .insight { border-top: 1px solid var(--line); }
+.insight-icon { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; }
+.insight-icon.out { background: color-mix(in srgb, var(--out) 14%, var(--surface)); color: var(--out); }
+.insight-icon.in { background: color-mix(in srgb, var(--in) 14%, var(--surface)); color: var(--in); }
+.insight-icon.warn { background: color-mix(in srgb, var(--warn) 18%, var(--surface)); color: color-mix(in srgb, var(--warn) 45%, var(--ink)); }
+.insight-body { display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start; }
+.insight-body .link { min-height: 44px; display: inline-flex; align-items: center; }

@@ -88,7 +88,11 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   catégorie, à l'import, aux récurrences et via « Appliquer » (jamais sur une catégorie choisie). Toast « Toujours classer… ? ».
   Tags (`tags`, `transaction_tags`) : saisie avec autocomplétion, filtre dans Opérations, page de tag (total, période,
   répartition). Écran Réglages › Règles. Seed : règle BASIC FIT et tag #week-end-lyon. 13 tests API/unitaires + 2 e2e.
-- [ ] **Tâche 12 — Comparaisons automatiques (insights)**
+- [x] **Tâche 12 — Comparaisons automatiques (insights)**
+  Module pur `src/insights.js` : catégorie en hausse/baisse (> 30 % et > 40 € vs moyenne des 3 mois précédents, à date
+  équivalente pour le mois en cours), dépense inhabituelle (> 3 × médiane de la catégorie sur 6 mois), budget en voie de
+  dépassement (date estimée), bonne nouvelle ; rien sous 2 mois d'historique ; 3 max triés en euros. `GET /api/insights`,
+  carte « À retenir » sur l'Aperçu, liens filtrés vers Opérations (`?month&category&q`). 15 tests API/unitaires + 1 e2e.
 - [ ] **Tâche 13 — Calendrier et vue annuelle**
 - [ ] **Tâche 14 — Récap mensuel imprimable**
 - [ ] **Tâche 15 — Dépenses partagées**

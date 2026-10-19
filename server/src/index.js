@@ -38,7 +38,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // un routeur par domaine ; chaque routeur déclare ses chemins complets (/api/...)
 for (const name of ['auth', 'accounts', 'wealth', 'categories', 'transactions', 'transfers', 'recurring',
-  'forecast', 'subscriptions', 'goals', 'budgets', 'stats', 'undo', 'rules', 'tags']) {
+  'forecast', 'subscriptions', 'goals', 'budgets', 'stats', 'undo', 'rules', 'tags', 'insights']) {
   app.use(require(`./routes/${name}`));
 }
 

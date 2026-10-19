@@ -21,6 +21,8 @@ export async function remaining(page: Page) {
 
 export async function goTo(page: Page, name: string) {
   await page.getByRole('navigation').getByRole('link', { name }).click();
+  // pages chargées à la demande : l'ancienne reste affichée le temps du chargement, on attend la nouvelle
+  await expect(page.locator('main h1')).toHaveText(name === 'Aperçu' ? /^Bonjour/ : name);
 }
 
 /** Revenus et Dépenses du mois affichés sur l'Aperçu. */

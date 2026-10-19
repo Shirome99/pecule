@@ -10,6 +10,7 @@ import GoalCard from '../components/GoalCard';
 import ForecastLine from '../components/ForecastLine';
 import SubscriptionsCard from '../components/SubscriptionsCard';
 import NetworthCard from '../components/NetworthCard';
+import InsightsCard from '../components/InsightsCard';
 
 const TrendChart = lazy(() => import('../components/TrendChart'));
 
@@ -86,6 +87,8 @@ export default function Dashboard() {
           </p>
         )}
       </section>
+
+      <InsightsCard month={month} version={version} />
 
       <div className="grid-2">
         <section className="panel">

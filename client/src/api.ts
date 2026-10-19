@@ -96,6 +96,10 @@ export type Rule = {
   id: number; pattern: string; category_id: number; priority: number;
   category_name: string; category_icon: string; category_color: string; category_kind: 'expense' | 'income';
 };
+export type Insight = {
+  type: 'category_up' | 'category_down' | 'unusual' | 'budget_pace' | 'good_news';
+  amount: number; text: string; link: { month: string; category_id?: number; q?: string };
+};
 export type Tag = { name: string; count: number; last_date: string };
 export type TagSummary = {
   name: string; count: number; total: number; income: number; from: string; to: string;

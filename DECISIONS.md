@@ -188,3 +188,20 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
 - Saisie : `<datalist>` natif pour l'autocomplétion (pas de librairie), Entrée / virgule / espace valide un tag.
 - Suppression d'une catégorie : ses règles reviennent aussi avec « Annuler » ; suppression d'une opération : ses tags aussi.
 **Écarté** : expressions régulières dans les motifs (risque d'erreur et de lenteur, « contient » suffit) ; tags hiérarchiques.
+
+## 2026-10-19 — Constats (tâche 12)
+**Choix** :
+- Mois en cours : la hausse/baisse d'une catégorie compare les dépenses **jusqu'au même jour** du mois (sinon un mois
+  commencé serait toujours « en baisse »). Mois passé : mois complets.
+- Historique : un mois compte si la première opération date d'avant son 1er jour (même règle que la prévision) ; moins de
+  2 mois → aucun constat. La moyenne n'utilise que les mois d'historique parmi les 3 précédents.
+- Dépense inhabituelle : il faut au moins 3 autres dépenses dans la catégorie sur les 6 mois (sinon la médiane ne veut rien
+  dire) ; opérations sans catégorie ignorées.
+- Budget : seulement pour le mois en cours, et seulement s'il n'est pas déjà dépassé (la barre le montre déjà) ;
+  projection linéaire (dépensé ÷ jours écoulés × jours du mois), date = premier jour où le rythme atteint le plafond.
+- Bonne nouvelle : mois en cours strictement moins dépensier que chacun des 5 précédents (dans l'historique) à la même date.
+- Importance en euros : écart à la moyenne, excédent sur la médiane, dépassement projeté, économie vs moyenne.
+- Les phrases sont construites par le serveur (un seul endroit pour les seuils et les chiffres) ; le lien est structuré
+  (`month`, `category_id`, `q`) et le client en fait une URL de filtre.
+- Tests e2e : `goTo` attend le titre de la nouvelle page, car avec `React.lazy` l'ancienne reste affichée pendant le
+  chargement (un test cliquait la même opération dans les « Dernières opérations » de l'Aperçu).

@@ -132,6 +132,7 @@ Les erreurs renvoient `{ error: "message en français" }`.
 | GET/POST/DELETE | `/api/budgets?month=YYYY-MM` | Plafonds mensuels + dépensé du mois (hors virements) |
 | GET | `/api/stats?month=YYYY-MM` | Revenus, dépenses, solde des liquidités, répartition, tendance 6 mois, `upcoming` (récurrences à venir du mois) |
 | GET | `/api/forecast?month=YYYY-MM` | Prévision du mois en cours : à venir, rythme des dépenses variables, `projected_end_balance`, `safe_to_spend`, `safe_per_day`, `overspend` ; mois passé → chiffres réels avec `is_past: true` ; mois futur → 400 |
+| GET | `/api/insights?month=YYYY-MM` | Au plus 3 constats du mois (catégorie en hausse/baisse, dépense inhabituelle, budget en voie de dépassement, bonne nouvelle), triés par importance, avec un lien de filtre |
 | GET | `/api/subscriptions` | Abonnements détectés (mensuels / annuels), coût annuel, prochaine date, `price_change` ; totaux mensuel et annuel |
 | POST | `/api/subscriptions/ignore` · `/api/subscriptions/track` | `{ key }` : ignorer un abonnement, ou le suivre comme opération récurrente |
 | GET/POST | `/api/accounts/:id/valuations` | Valorisations d'un placement `{ date, value }` (une par jour, la dernière fait foi) |

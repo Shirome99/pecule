@@ -8,17 +8,19 @@ import TxRow from '../components/TxRow';
 import ImportModal from '../components/ImportModal';
 
 export default function Transactions() {
-  const { month, version, accounts, categories } = useStore();
+  const { month, setMonth, version, accounts, categories } = useStore();
+  // filtres dans l'URL (?month=…&category=…&q=…&tag=…) : liens depuis les constats et les pages de tag
+  const [params, setParams] = useSearchParams();
   const [txs, setTxs] = useState<Transaction[] | null>(null);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(params.get('q') ?? '');
   const [accountId, setAccountId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+  const [categoryId, setCategoryId] = useState(params.get('category') ?? '');
   const [importing, setImporting] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
-  // filtre par tag dans l'URL (?tag=…) : lien depuis la page d'un tag
-  const [params, setParams] = useSearchParams();
   const tag = params.get('tag') ?? '';
   const setTag = (t: string) => setParams(t ? { tag: t } : {}, { replace: true });
+  const linkedMonth = params.get('month');
+  useEffect(() => { if (linkedMonth && /^d{4}-d{2}$/.test(linkedMonth)) setMonth(linkedMonth); }, [linkedMonth, setMonth]);
   // raccourci « / » depuis une autre page : le curseur arrive dans la recherche
   const focusSearch = !!(useLocation().state as { focusSearch?: boolean } | null)?.focusSearch;
 
