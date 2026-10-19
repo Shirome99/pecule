@@ -5,7 +5,8 @@ async function safeToSpend(page: Page) {
   await page.getByRole('button', { name: "Comment c'est calculé ?" }).click();
   const dialog = page.getByRole('dialog', { name: "Comment c'est calculé ?" });
   const value = parseEuros((await dialog.locator('.calc-row', { hasText: 'Reste à dépenser' }).locator('dd').textContent()) ?? '');
-  await expect(dialog.locator('.calc-row', { hasText: 'Épargne prévue' })).toContainText('300,00');
+  // 300 € vers le Livret A + 200 € vers le PEA (un placement est aussi de l'épargne)
+  await expect(dialog.locator('.calc-row', { hasText: 'Épargne prévue' })).toContainText('500,00');
   await dialog.getByRole('button', { name: 'Fermer' }).click();
   return value;
 }

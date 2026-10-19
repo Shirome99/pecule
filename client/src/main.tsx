@@ -11,6 +11,7 @@ import Budgets from './pages/Budgets';
 import Accounts from './pages/Accounts';
 import OfflineBanner from './components/OfflineBanner';
 import Subscriptions from './pages/Subscriptions';
+import Networth from './pages/Networth';
 
 function App() {
   const { user, ready } = useStore();
@@ -24,6 +25,7 @@ function App() {
         <Route path="budgets" element={<Budgets />} />
         <Route path="comptes" element={<Accounts />} />
         <Route path="abonnements" element={<Subscriptions />} />
+        <Route path="patrimoine" element={<Networth />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

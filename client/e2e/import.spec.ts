@@ -2,8 +2,9 @@ import { writeFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { goTo, loginDemo } from './helpers';
 
-type Stats = { balance: number; trend: { month: string; income: number; expenses: number }[] };
-type Account = { initial_balance: number };
+type Stats = { trend: { month: string; income: number; expenses: number }[] };
+type Account = { id: number; family: string };
+type Tx = { amount: number; account_id: number; transfer_id: string | null };
 
 const token = (page: Page) => page.evaluate(() => localStorage.getItem('pecule_token'));
 
@@ -13,12 +14,14 @@ async function apiGet<T>(page: Page, url: string): Promise<T> {
   return url.endsWith('.csv') ? ((await res.text()) as T) : res.json();
 }
 
-/** Tendance 6 mois + somme des opérations (solde total hors soldes de départ). */
+/** Tendance 6 mois (revenus / dépenses par mois) + somme des opérations hors virements sur les liquidités. */
 async function totals(page: Page) {
   const stats = await apiGet<Stats>(page, '/stats');
   const accounts = await apiGet<Account[]>(page, '/accounts');
-  const initial = accounts.reduce((s, a) => s + a.initial_balance, 0);
-  return { trend: stats.trend, operations: Math.round((stats.balance - initial) * 100) / 100 };
+  const liquid = new Set(accounts.filter((a) => a.family === 'liquid').map((a) => a.id));
+  const txs = await apiGet<Tx[]>(page, '/transactions?limit=2000');
+  const operations = txs.filter((t) => !t.transfer_id && liquid.has(t.account_id)).reduce((s, t) => s + t.amount, 0);
+  return { trend: stats.trend, operations: Math.round(operations * 100) / 100 };
 }
 
 test("l'export CSV réimporté dans un compte vide donne les mêmes totaux", async ({ page }, info) => {

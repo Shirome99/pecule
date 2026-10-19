@@ -64,6 +64,43 @@ for (const n of [2, 14]) {
   ins.run(uid, acc, cat['Logement'], -18900, `PRLV SEPA MMA IARD ${880000 + n}`, `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-15`);
 }
 
+// ---------- patrimoine : placements valorisés à la main et crédit immobilier ----------
+const { cashAt } = require('./wealth');
+const { iso, daysIn, addMonths, localToday } = require('./dates');
+const newAccount = (name, type, initial) =>
+  db.prepare('INSERT INTO accounts (user_id, name, type, initial_balance) VALUES (?,?,?,?)').run(uid, name, type, initial).lastInsertRowid;
+const valuation = db.prepare('INSERT OR REPLACE INTO valuations (user_id, account_id, date, value) VALUES (?,?,?,?)');
+const todayIso = localToday();
+const monthEndAgo = (n) => {
+  if (n === 0) return todayIso;
+  const [y, m] = addMonths(`${todayIso.slice(0, 7)}-01`, -n).split('-').map(Number);
+  return iso(y, m, daysIn(y, m));
+};
+
+// PEA : 8 000 € déjà versés, puis 200 € par mois (virement récurrent), valorisé chaque fin de mois
+const pea = newAccount('PEA', 'pea', 800000);
+db.prepare(`INSERT INTO recurring (user_id, account_id, to_account_id, amount, label, frequency, day, start_date)
+  VALUES (?,?,?,?,?,'monthly',?,?)`).run(uid, acc, pea, -20000, 'Versement PEA', 10, startDate);
+generateRecurring(uid);
+for (let n = 23; n >= 0; n--) {
+  const date = monthEndAgo(n);
+  const years = (24 - n) / 12;
+  const perf = 0.07 * years + 0.035 * Math.sin(n * 1.3); // tendance haussière avec des à-coups
+  valuation.run(uid, pea, date, Math.round(cashAt(pea, date) * (1 + perf)));
+}
+
+// assurance-vie : 15 000 € placés, valorisation trimestrielle à ~2,5 %/an
+const av = newAccount('Assurance-vie', 'assurance_vie', 1500000);
+for (let n = 24; n >= 0; n -= 3) valuation.run(uid, av, monthEndAgo(n), Math.round(1500000 * 1.025 ** ((27 - n) / 12)));
+
+// appartement locatif acheté il y a 3 ans, financé par un crédit de 200 000 € sur 20 ans à 3,5 %
+const appart = newAccount('Appartement locatif', 'immobilier', 24000000);
+[[36, 24000000], [24, 24500000], [12, 24800000], [0, 25200000]].forEach(([n, v]) => valuation.run(uid, appart, monthEndAgo(n), v));
+const pret = newAccount('Prêt immobilier', 'credit_immo', 0);
+const firstPayment = `${addMonths(`${todayIso.slice(0, 7)}-01`, -36).slice(0, 7)}-05`;
+db.prepare(`INSERT INTO loans (user_id, account_id, principal, annual_rate, duration_months, first_payment_date, insurance_monthly)
+  VALUES (?,?,?,?,?,?,0)`).run(uid, pret, 20000000, 3.5, 240, firstPayment);
+
 // objectifs : l'un suit le Livret A, l'autre est alimenté à la main
 const inMonths = (n) => {
   const d = new Date(today.getFullYear(), today.getMonth() + n, 1);

@@ -1,6 +1,7 @@
 // Opérations récurrentes : calcul des dates d'occurrence et génération idempotente des opérations dues.
 const { db } = require('./db');
 const { iso, daysIn, localToday, occurrences } = require('./dates');
+const { FAMILIES, sqlList } = require('./accounts');
 
 /** Crée les occurrences dues jusqu'à `today` pour toutes les règles actives. Peut être relancée sans créer de doublon. */
 function generateRecurring(userId, today = localToday()) {
@@ -37,7 +38,10 @@ function upcomingInMonth(userId, month, today = localToday()) {
   const to = iso(y, m, daysIn(y, m));
   let total = 0;
   let count = 0;
-  for (const r of db.prepare('SELECT * FROM recurring WHERE user_id = ? AND paused = 0 AND to_account_id IS NULL').all(userId)) {
+  // virements exclus ; seules les récurrences des comptes de liquidités comptent dans le budget
+  const rules = db.prepare(`SELECT r.* FROM recurring r JOIN accounts a ON a.id = r.account_id
+    WHERE r.user_id = ? AND r.paused = 0 AND r.to_account_id IS NULL AND a.type IN ${sqlList(FAMILIES.liquid)}`).all(userId);
+  for (const r of rules) {
     for (const d of occurrences(r, from, to)) {
       if (d > today && (!r.last_generated || d > r.last_generated)) { total += r.amount; count++; }
     }

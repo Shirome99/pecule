@@ -1,18 +1,22 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type Account, type AccountType, type Goal, type Recurring } from '../api';
+import { api, type Account, type Goal, type Recurring } from '../api';
 import { useStore } from '../store';
-import { ACCOUNT_TYPES, frequencyLabel, money, shortDate, signed } from '../format';
+import { ACCOUNT_TYPES, FAMILIES, frequencyLabel, money, percent, shortDate, signed } from '../format';
 import Modal from '../components/Modal';
 import GoalCard from '../components/GoalCard';
+import { AccountForm, InvestmentSheet, LoanSheet } from '../components/AccountSheets';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316', '#0ea5e9', '#6b7280'];
 
 export default function Accounts() {
   const { accounts, categories, refresh } = useStore();
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
+  const [viewing, setViewing] = useState<Account | null>(null);
   const [newCat, setNewCat] = useState(false);
-  const total = accounts.reduce((s, a) => s + a.balance, 0);
+  // la fiche ouverte suit les données rechargées (valeur mise à jour…)
+  const viewed = viewing && accounts.find((a) => a.id === viewing.id);
+  const open = (a: Account) => (a.family === 'liquid' ? setEditing(a) : setViewing(a));
 
   async function removeCategory(id: number, name: string) {
     if (!confirm(`Supprimer la catégorie ${name} ? Ses opérations deviendront « Sans catégorie ».`)) return;
@@ -24,26 +28,40 @@ export default function Accounts() {
     <div className="page">
       <header className="page-head"><h1>Comptes</h1></header>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Mes comptes</h2>
-          <span className="muted">Total <strong className="ink">{money(total)}</strong></span>
-        </div>
-        <ul className="account-list">
-          {accounts.map((a) => (
-            <li key={a.id}>
-              <button className="account-row" onClick={() => setEditing(a)}>
-                <span>
-                  <span className="tx-label">{a.name}</span>
-                  <span className="tx-meta">{ACCOUNT_TYPES[a.type]}</span>
-                </span>
-                <span className={`tx-amount ${a.balance < 0 ? 'out' : ''}`}>{money(a.balance)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button className="btn ghost" onClick={() => setEditing('new')}>+ Ajouter un compte</button>
-      </section>
+      {(Object.keys(FAMILIES) as (keyof typeof FAMILIES)[]).map((family) => {
+        const list = accounts.filter((a) => a.family === family);
+        if (family !== 'liquid' && list.length === 0) return null;
+        return (
+          <section key={family} className="panel" aria-label={FAMILIES[family].label}>
+            <div className="panel-head">
+              <h2>{FAMILIES[family].label}</h2>
+              <span className="muted">Total <strong className={family === 'debt' ? 'out' : 'ink'}>{money(list.reduce((t, a) => t + a.balance, 0))}</strong></span>
+            </div>
+            <ul className="account-list">
+              {list.map((a) => (
+                <li key={a.id}>
+                  <button className="account-row" onClick={() => open(a)}>
+                    <span>
+                      <span className="tx-label">{a.name}</span>
+                      <span className="tx-meta">
+                        {ACCOUNT_TYPES[a.type]}
+                        {a.family === 'investment' && a.gain_pct != null && <> · <span className={(a.gain ?? 0) >= 0 ? 'in' : 'out'}>{percent(a.gain_pct)}</span></>}
+                      </span>
+                    </span>
+                    <span className={`tx-amount ${a.balance < 0 ? 'out' : ''}`}>{money(a.balance)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {family === 'liquid' && (
+              <div className="row-actions">
+                <button className="btn ghost" onClick={() => setEditing('new')}>+ Ajouter un compte</button>
+                <Link to="/patrimoine" className="link">Voir mon patrimoine</Link>
+              </div>
+            )}
+          </section>
+        );
+      })}
 
       <GoalsSection />
 
@@ -70,6 +88,12 @@ export default function Accounts() {
       </section>
 
       {editing && <AccountForm account={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
+      {viewed && !editing && viewed.family === 'investment' && (
+        <InvestmentSheet account={viewed} onEdit={() => setEditing(viewed)} onClose={() => setViewing(null)} />
+      )}
+      {viewed && !editing && viewed.family === 'debt' && (
+        <LoanSheet account={viewed} onEdit={() => setEditing(viewed)} onClose={() => setViewing(null)} />
+      )}
       {newCat && <CategoryForm onClose={() => setNewCat(false)} />}
     </div>
   );
@@ -290,60 +314,6 @@ function RecurringSection() {
         </ul>
       )}
     </section>
-  );
-}
-
-function AccountForm({ account, onClose }: { account?: Account; onClose: () => void }) {
-  const { refresh } = useStore();
-  const [name, setName] = useState(account?.name ?? '');
-  const [type, setType] = useState<AccountType>(account?.type ?? 'courant');
-  const [initial, setInitial] = useState(account ? String(account.initial_balance) : '0');
-  const [error, setError] = useState('');
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    const body = { name, type, initial_balance: Number(initial.replace(',', '.')) || 0 };
-    try {
-      if (account) await api.put(`/accounts/${account.id}`, body);
-      else await api.post('/accounts', body);
-      refresh();
-      onClose();
-    } catch (err) { setError((err as Error).message); }
-  }
-
-  async function remove() {
-    if (!account || !confirm(`Supprimer ${account.name} et toutes ses opérations ?`)) return;
-    try {
-      await api.del(`/accounts/${account.id}`);
-      refresh();
-      onClose();
-    } catch (err) { setError((err as Error).message); }
-  }
-
-  return (
-    <Modal title={account ? 'Modifier le compte' : 'Nouveau compte'} onClose={onClose}>
-      <form className="form" onSubmit={submit}>
-        <label className="field"><span>Nom</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Boursorama" required />
-        </label>
-        <label className="field"><span>Type</span>
-          <select value={type} onChange={(e) => setType(e.target.value as AccountType)}>
-            {Object.entries(ACCOUNT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </label>
-        <label className="field"><span>Solde de départ</span>
-          <div className="amount-input">
-            <input inputMode="decimal" value={initial} onChange={(e) => setInitial(e.target.value)} />
-            <span>€</span>
-          </div>
-        </label>
-        {error && <p className="form-error" role="alert">{error}</p>}
-        <div className="form-actions">
-          {account && <button type="button" className="btn ghost danger" onClick={remove}>Supprimer</button>}
-          <button className="btn primary">Enregistrer</button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 

@@ -47,4 +47,17 @@ test('captures de tous les écrans', async ({ page }) => {
   await page.getByRole('link', { name: 'Abonnements détectés' }).click();
   await page.locator('.sub-item').first().waitFor();
   await shot('07b-abonnements');
+
+  await goTo(page, 'Comptes');
+  await page.getByRole('region', { name: 'Placements' }).getByRole('button', { name: /PEA/ }).click();
+  await modalShot('07c-fiche-placement');
+  await page.getByRole('button', { name: 'Fermer' }).click();
+  await page.getByRole('region', { name: 'Dettes' }).getByRole('button', { name: /Prêt immobilier/ }).click();
+  await page.getByText(/Tableau d'amortissement/).click();
+  await modalShot('07d-fiche-credit');
+  await page.getByRole('button', { name: 'Fermer' }).click();
+
+  await page.getByRole('link', { name: 'Voir mon patrimoine' }).click();
+  await page.locator('.recharts-area').first().waitFor();
+  await shot('09-patrimoine');
 });

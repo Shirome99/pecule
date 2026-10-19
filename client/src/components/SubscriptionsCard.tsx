@@ -15,7 +15,7 @@ export default function SubscriptionsCard({ version }: { version: number }) {
   const hikes = data.items.filter((s) => s.price_change && s.price_change.new_amount > s.price_change.old_amount
     && s.price_change.date >= since && s.price_change.date <= today());
   return (
-    <section className="panel subs-card">
+    <section className="panel mini-card subs-card">
       <div className="panel-head">
         <h2>Abonnements : {moneyRound(data.monthly_total)}/mois, {moneyRound(data.annual_total)}/an</h2>
         <Link to="/abonnements" className="link">Voir</Link>

@@ -124,3 +124,20 @@ sont plus annoncés comme vérifiés) plutôt que supprimer des fichiers qui fon
   sont exclus de la détection, comme demandé.
 - « Suivre comme récurrence » crée la règle à partir de la prochaine échéance attendue : aucune opération passée en double.
 **Écarté** : un lien « Abonnements » dans la barre d'onglets (interdit sur mobile) ; regrouper par commerçant via une IA.
+
+## 2026-10-19 — Patrimoine net
+**Choix** :
+- `balance` d'un compte = sa **valeur** actuelle selon sa famille (solde, dernière valorisation, − capital restant dû) :
+  les totaux de la page Comptes et les objectifs liés à un placement l'utilisent directement.
+- Placement sans valorisation : sa valeur est le total versé (solde de départ « déjà versé » + virements reçus).
+- Crédit : la dette suit le tableau d'amortissement, pas les opérations. Le prêt est supposé débloqué un mois avant la
+  1re échéance (date de déblocage non saisie). Les mensualités payées depuis le compte courant restent de simples
+  dépenses (pas de ventilation intérêts / capital) ; le seed n'en génère pas, pour ne pas fausser le budget démo.
+- Les virements vers un placement comptent dans l'« épargne prévue » de la prévision (comme vers un livret).
+- Seed : en plus du PEA, de l'assurance-vie et du crédit demandés, un appartement locatif (placement immobilier) : sans
+  l'actif financé, le patrimoine démo serait fortement négatif et peu parlant.
+- Graphique : palette catégorielle de référence (3 premiers emplacements : bleu, aqua, orange), validée en clair et en
+  sombre par le script de la skill dataviz ; l'aqua est sous 3:1 en clair → légende chiffrée et tableau des données.
+  Le patrimoine net est une ligne couleur encre, les dettes une aire sous zéro, une seule échelle.
+- `valuations` et `loans` portent un `user_id` pour vérifier la propriété avec `owns()` comme le reste de l'API.
+**Écarté** : cotations automatiques (API externe, hors périmètre) ; ventiler chaque mensualité en intérêts et capital.

@@ -11,7 +11,12 @@ const { goalPlan } = require('./goals');
 const { forecast } = require('./forecast');
 const { detectSubscriptions, normalizeLabel } = require('./subscriptions');
 const { addMonths } = require('./dates');
-const { FAMILIES, SPENDABLE, SAVINGS, sqlList } = require('./accounts');
+const { FAMILIES, ACCOUNT_TYPES, SPENDABLE, SAVINGS, familyOf, sqlList } = require('./accounts');
+const { accountValueAt, investmentDetails, networthSeries, loanOf } = require('./wealth');
+const amortization = require('./amortization');
+
+// seules les liquidités entrent dans les revenus, dépenses, budgets, prévisions et le « Solde total »
+const liquidTypes = sqlList(FAMILIES.liquid);
 const { configErrors, rateLimit, corsOptions, DEFAULT_JWT_SECRET } = require('./security');
 
 // en production, on refuse de démarrer avec une configuration dangereuse
@@ -126,7 +131,7 @@ app.get('/api/me', auth, wrap((req, res) => {
 // ---------- accounts ----------
 const accountSchema = z.object({
   name: z.string().trim().min(1, 'Nom requis'),
-  type: z.enum(['courant', 'epargne', 'especes', 'carte']).default('courant'),
+  type: z.enum(ACCOUNT_TYPES, { error: 'Type de compte inconnu' }).default('courant'),
   initial_balance: z.coerce.number().default(0),
 });
 
@@ -135,7 +140,113 @@ app.get('/api/accounts', auth, wrap((req, res) => {
     SELECT a.*, a.initial_balance + COALESCE(SUM(t.amount), 0) AS balance
     FROM accounts a LEFT JOIN transactions t ON t.account_id = a.id
     WHERE a.user_id = ? GROUP BY a.id ORDER BY a.id`).all(req.userId);
-  res.json(rows.map((r) => ({ ...r, initial_balance: fromCents(r.initial_balance), balance: fromCents(r.balance) })));
+  res.json(rows.map((r) => {
+    const family = familyOf(r.type);
+    const out = { ...r, family, initial_balance: fromCents(r.initial_balance), balance: fromCents(accountValueAt(r)) };
+    if (family === 'investment') {
+      const d = investmentDetails(r);
+      Object.assign(out, { invested: fromCents(d.invested), gain: fromCents(d.gain), gain_pct: d.gain_pct, valued_at: d.valued_at });
+    }
+    if (family === 'debt') out.loan_id = loanOf(r.id)?.id ?? null;
+    return out;
+  }));
+}));
+
+// ---------- placements : valorisations ----------
+const investmentOf = (id, userId) => {
+  const a = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(id, userId);
+  return a && familyOf(a.type) === 'investment' ? a : null;
+};
+
+app.get('/api/accounts/:id/valuations', auth, wrap((req, res) => {
+  if (!investmentOf(req.params.id, req.userId)) return res.status(404).json({ error: 'Placement introuvable' });
+  const rows = db.prepare('SELECT id, date, value FROM valuations WHERE account_id = ? ORDER BY date DESC').all(req.params.id);
+  res.json(rows.map((v) => ({ ...v, value: fromCents(v.value) })));
+}));
+
+app.post('/api/accounts/:id/valuations', auth, wrap((req, res) => {
+  if (!owns('accounts', req.params.id, req.userId)) return res.status(404).json({ error: 'Compte introuvable' });
+  if (!investmentOf(req.params.id, req.userId)) return res.status(400).json({ error: 'Les valorisations ne concernent que les placements' });
+  const v = z.object({
+    date: isoDate('Date invalide'),
+    value: z.coerce.number({ error: 'Valeur invalide' }).min(0, 'La valeur ne peut pas être négative'),
+  }).parse(req.body);
+  // une seule valorisation par jour : la nouvelle remplace l'ancienne
+  db.prepare(`INSERT INTO valuations (user_id, account_id, date, value) VALUES (?,?,?,?)
+    ON CONFLICT(account_id, date) DO UPDATE SET value = excluded.value`).run(req.userId, req.params.id, v.date, toCents(v.value));
+  res.status(201).json({ ok: true });
+}));
+
+app.delete('/api/valuations/:id', auth, wrap((req, res) => {
+  if (!owns('valuations', req.params.id, req.userId)) return res.status(404).json({ error: 'Valorisation introuvable' });
+  db.prepare('DELETE FROM valuations WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+}));
+
+// ---------- crédits ----------
+const loanSchema = z.object({
+  principal: z.coerce.number({ error: 'Capital invalide' }).positive('Le capital emprunté doit être positif'),
+  annual_rate: z.coerce.number({ error: 'Taux invalide' }).min(0, 'Le taux ne peut pas être négatif').max(30, 'Taux trop élevé (30 % max)'),
+  duration_months: z.coerce.number({ error: 'Durée invalide' }).int('Durée en mois entiers').min(1, 'Durée : 1 mois minimum').max(600, 'Durée : 600 mois maximum'),
+  first_payment_date: isoDate('Date de 1re échéance invalide'),
+  insurance_monthly: z.coerce.number().min(0, "L'assurance ne peut pas être négative").default(0),
+});
+
+const loanOut = (loan) => {
+  const s = amortization.summary(loan);
+  return {
+    ...loan,
+    principal: fromCents(loan.principal),
+    insurance_monthly: fromCents(loan.insurance_monthly),
+    outstanding: fromCents(amortization.outstandingAt(loan, localToday())),
+    payment: fromCents(s.payment),
+    end_date: s.end_date,
+    total_interest: fromCents(s.total_interest),
+    total_insurance: fromCents(s.total_insurance),
+    total_cost: fromCents(s.total_cost),
+  };
+};
+
+app.get('/api/accounts/:id/loan', auth, wrap((req, res) => {
+  const loan = db.prepare('SELECT * FROM loans WHERE account_id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!loan) return res.status(404).json({ error: 'Crédit introuvable' });
+  res.json(loanOut(loan));
+}));
+
+app.put('/api/accounts/:id/loan', auth, wrap((req, res) => {
+  const a = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!a) return res.status(404).json({ error: 'Compte introuvable' });
+  if (familyOf(a.type) !== 'debt') return res.status(400).json({ error: 'Seuls les comptes de crédit ont un tableau d’amortissement' });
+  const l = loanSchema.parse(req.body);
+  db.prepare(`INSERT INTO loans (user_id, account_id, principal, annual_rate, duration_months, first_payment_date, insurance_monthly)
+    VALUES (?,?,?,?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET principal = excluded.principal, annual_rate = excluded.annual_rate,
+    duration_months = excluded.duration_months, first_payment_date = excluded.first_payment_date, insurance_monthly = excluded.insurance_monthly`)
+    .run(req.userId, a.id, toCents(l.principal), l.annual_rate, l.duration_months, l.first_payment_date, toCents(l.insurance_monthly));
+  res.json(loanOut(db.prepare('SELECT * FROM loans WHERE account_id = ?').get(a.id)));
+}));
+
+app.get('/api/loans/:id/schedule', auth, wrap((req, res) => {
+  if (!owns('loans', req.params.id, req.userId)) return res.status(404).json({ error: 'Crédit introuvable' });
+  const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(req.params.id);
+  const rows = amortization.schedule(loan).map((r) => ({
+    ...r, payment: fromCents(r.payment), interest: fromCents(r.interest), principal: fromCents(r.principal),
+    insurance: fromCents(r.insurance), remaining: fromCents(r.remaining),
+  }));
+  res.json({ loan: loanOut(loan), schedule: rows });
+}));
+
+// ---------- patrimoine net ----------
+app.get('/api/networth', auth, wrap((req, res) => {
+  const { months } = z.object({
+    months: z.coerce.number().int().min(1, 'months : 1 minimum').max(120, 'months : 120 maximum').default(24),
+  }).parse(req.query);
+  const points = networthSeries(req.userId, months).map((p) => ({
+    ...p, liquid: fromCents(p.liquid), investments: fromCents(p.investments), debts: fromCents(p.debts), net: fromCents(p.net),
+  }));
+  const current = points[points.length - 1];
+  const ago = (n) => (points.length > n ? points[points.length - 1 - n].net : null);
+  const change = (n) => (ago(n) === null ? null : Math.round((current.net - ago(n)) * 100) / 100);
+  res.json({ current, change_1m: change(1), change_12m: change(12), months: points });
 }));
 
 app.post('/api/accounts', auth, wrap((req, res) => {
@@ -534,12 +645,12 @@ function goalsOf(userId, id = null) {
   const today = localToday();
   const rows = db.prepare(`
     SELECT g.*, a.name AS account_name,
-      CASE WHEN g.account_id IS NULL THEN g.saved
-           ELSE a.initial_balance + (SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account_id = g.account_id) END AS progress
+      a.type AS account_type
     FROM goals g LEFT JOIN accounts a ON a.id = g.account_id
     WHERE g.user_id = ? ${id ? 'AND g.id = ?' : ''} ORDER BY g.target_date IS NULL, g.target_date, g.id`)
     .all(...(id ? [userId, id] : [userId]));
-  return rows.map((g) => {
+  return rows.map(({ account_type, ...g }) => {
+    g.progress = g.account_id ? accountValueAt({ id: g.account_id, type: account_type }, today) : g.saved;
     const plan = goalPlan(g.progress, g.target_amount, g.target_date, today);
     return {
       ...g, ...plan,
@@ -602,7 +713,7 @@ app.get('/api/budgets', auth, wrap((req, res) => {
     SELECT b.id, b.category_id, b.monthly_limit, c.name, c.color, c.icon,
       COALESCE((SELECT -SUM(t.amount) FROM transactions t
         WHERE t.category_id = b.category_id AND t.user_id = b.user_id
-          AND substr(t.date,1,7) = ? AND t.amount < 0 AND t.transfer_id IS NULL), 0) AS spent
+          AND substr(t.date,1,7) = ? AND t.amount < 0 AND t.transfer_id IS NULL AND t.account_id IN (SELECT id FROM accounts WHERE type IN ${liquidTypes})), 0) AS spent
     FROM budgets b JOIN categories c ON c.id = b.category_id
     WHERE b.user_id = ? ORDER BY c.name`).all(month, req.userId);
   res.json(rows.map((r) => ({ ...r, monthly_limit: fromCents(r.monthly_limit), spent: fromCents(r.spent) })));
@@ -636,17 +747,17 @@ app.get('/api/stats', auth, wrap((req, res) => {
   const totals = db.prepare(`
     SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) AS income,
            COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END),0) AS expenses
-    FROM transactions WHERE user_id = ? AND substr(date,1,7) = ? AND transfer_id IS NULL`).get(uid, month);
+    FROM transactions WHERE user_id = ? AND substr(date,1,7) = ? AND transfer_id IS NULL AND account_id IN (SELECT id FROM accounts WHERE type IN ${liquidTypes})`).get(uid, month);
 
   const balance = db.prepare(`
-    SELECT (SELECT COALESCE(SUM(initial_balance),0) FROM accounts WHERE user_id = ?)
-         + (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id = ?) AS total`).get(uid, uid).total;
+    SELECT (SELECT COALESCE(SUM(initial_balance),0) FROM accounts WHERE user_id = ? AND type IN ${liquidTypes})
+         + (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id = ? AND account_id IN (SELECT id FROM accounts WHERE type IN ${liquidTypes})) AS total`).get(uid, uid).total;
 
   const byCategory = db.prepare(`
     SELECT c.id, COALESCE(c.name,'Sans catégorie') AS name, COALESCE(c.color,'#9ca3af') AS color,
            COALESCE(c.icon,'•') AS icon, -SUM(t.amount) AS total
     FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
-    WHERE t.user_id = ? AND substr(t.date,1,7) = ? AND t.amount < 0 AND t.transfer_id IS NULL
+    WHERE t.user_id = ? AND substr(t.date,1,7) = ? AND t.amount < 0 AND t.transfer_id IS NULL AND t.account_id IN (SELECT id FROM accounts WHERE type IN ${liquidTypes})
     GROUP BY c.id ORDER BY total DESC`).all(uid, month);
 
   // 6 derniers mois glissants jusqu'au mois sélectionné
@@ -660,7 +771,7 @@ app.get('/api/stats', auth, wrap((req, res) => {
     SELECT substr(date,1,7) AS month,
       COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) AS income,
       COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END),0) AS expenses
-    FROM transactions WHERE user_id = ? AND substr(date,1,7) BETWEEN ? AND ? AND transfer_id IS NULL
+    FROM transactions WHERE user_id = ? AND substr(date,1,7) BETWEEN ? AND ? AND transfer_id IS NULL AND account_id IN (SELECT id FROM accounts WHERE type IN ${liquidTypes})
     GROUP BY month`).all(uid, months[0], months[5]);
   const trendMap = Object.fromEntries(trendRows.map((r) => [r.month, r]));
   const trend = months.map((mo) => ({

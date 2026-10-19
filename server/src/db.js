@@ -87,6 +87,28 @@ addColumn('recurring', 'to_account_id', 'INTEGER REFERENCES accounts(id) ON DELE
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tx_recurring ON transactions(recurring_id, date)
   WHERE recurring_id IS NOT NULL`);
 
+// patrimoine : valorisations manuelles des placements (dernière connue = valeur) et paramètres des crédits
+db.exec(`
+CREATE TABLE IF NOT EXISTS valuations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  value INTEGER NOT NULL,           -- centimes
+  UNIQUE(account_id, date)
+);
+CREATE TABLE IF NOT EXISTS loans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id INTEGER NOT NULL UNIQUE REFERENCES accounts(id) ON DELETE CASCADE,
+  principal INTEGER NOT NULL,       -- capital emprunté, centimes
+  annual_rate REAL NOT NULL,        -- taux annuel en %, ex. 3.5
+  duration_months INTEGER NOT NULL,
+  first_payment_date TEXT NOT NULL,
+  insurance_monthly INTEGER NOT NULL DEFAULT 0
+);
+`);
+
 // abonnements détectés que l'utilisateur a choisi d'ignorer (libellé normalisé)
 db.exec(`
 CREATE TABLE IF NOT EXISTS subscription_ignores (

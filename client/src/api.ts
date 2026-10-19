@@ -51,8 +51,25 @@ export const api = {
 
 // ---------- types ----------
 export type User = { id: number; email: string; name: string; currency: string };
-export type AccountType = 'courant' | 'epargne' | 'especes' | 'carte';
-export type Account = { id: number; name: string; type: AccountType; initial_balance: number; balance: number };
+export type AccountType =
+  | 'courant' | 'epargne' | 'especes' | 'carte'
+  | 'pea' | 'assurance_vie' | 'cto' | 'crypto' | 'immobilier' | 'autre_placement'
+  | 'credit_immo' | 'credit_conso';
+export type Family = 'liquid' | 'investment' | 'debt';
+/** `balance` = valeur actuelle : solde (liquidités), dernière valorisation (placement), − capital restant dû (crédit) */
+export type Account = {
+  id: number; name: string; type: AccountType; family: Family; initial_balance: number; balance: number;
+  invested?: number; gain?: number; gain_pct?: number | null; valued_at?: string | null; loan_id?: number | null;
+};
+export type Valuation = { id: number; date: string; value: number };
+export type Loan = {
+  id: number; account_id: number; principal: number; annual_rate: number; duration_months: number; first_payment_date: string;
+  insurance_monthly: number; outstanding: number; payment: number; end_date: string;
+  total_interest: number; total_insurance: number; total_cost: number;
+};
+export type ScheduleRow = { n: number; date: string; payment: number; interest: number; principal: number; insurance: number; remaining: number };
+export type NetworthPoint = { month: string; date: string; liquid: number; investments: number; debts: number; net: number };
+export type Networth = { current: NetworthPoint; change_1m: number | null; change_12m: number | null; months: NetworthPoint[] };
 export type Category = { id: number; name: string; kind: 'expense' | 'income'; color: string; icon: string };
 export type Transaction = {
   id: number; account_id: number; category_id: number | null; amount: number; label: string; date: string;

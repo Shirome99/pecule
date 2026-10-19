@@ -51,4 +51,23 @@ export const ACCOUNT_TYPES = {
   epargne: 'Épargne',
   especes: 'Espèces',
   carte: 'Carte',
+  pea: 'PEA',
+  assurance_vie: 'Assurance-vie',
+  cto: 'Compte-titres',
+  crypto: 'Crypto',
+  immobilier: 'Immobilier',
+  autre_placement: 'Autre placement',
+  credit_immo: 'Crédit immobilier',
+  credit_conso: 'Crédit conso',
 } as const;
+
+export const FAMILIES = {
+  liquid: { label: 'Liquidités', types: ['courant', 'epargne', 'especes', 'carte'] },
+  investment: { label: 'Placements', types: ['pea', 'assurance_vie', 'cto', 'crypto', 'immobilier', 'autre_placement'] },
+  debt: { label: 'Dettes', types: ['credit_immo', 'credit_conso'] },
+} as const;
+
+export const familyOf = (type: string): keyof typeof FAMILIES =>
+  (Object.keys(FAMILIES) as (keyof typeof FAMILIES)[]).find((f) => (FAMILIES[f].types as readonly string[]).includes(type)) ?? 'liquid';
+
+export const percent = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;

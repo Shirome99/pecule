@@ -26,7 +26,14 @@
   médian 25–35 j) et annuelle (2 occurrences à 350–380 j), montant stable, hausse de prix > 5 %. `GET /api/subscriptions`,
   `POST /api/subscriptions/ignore` (table `subscription_ignores`) et `/track` (crée la récurrence dès la prochaine échéance).
   UI : page « Abonnements » (depuis l'Aperçu et Comptes, pas de 5e onglet), carte sur l'Aperçu avec alerte de hausse. Seed : Spotify, Basic Fit, assurance annuelle. 6 tests unitaires + 2 API + 1 e2e.
-- [ ] Tâche 5 — Patrimoine net
+- [x] **Tâche 5 — Patrimoine net**
+  Nouveaux types (placements : PEA, assurance-vie, CTO, crypto, immobilier, autre ; dettes : crédit immo, conso) groupés en
+  liquidités / placements / dettes (`src/accounts.js`). Tables `valuations` et `loans` ; module pur `src/amortization.js`
+  (mensualité constante, tableau, capital restant dû) ; `src/wealth.js` (valeur d'un compte à une date, série mensuelle).
+  Placements et crédits exclus des revenus, dépenses, budgets, prévisions, récurrences « à venir » et du « Solde total ».
+  Routes : valorisations, `PUT /api/accounts/:id/loan`, `GET /api/loans/:id/schedule`, `GET /api/networth?months=24`.
+  UI : Comptes en 3 sections, fiche placement (versé, plus-value, valorisations), fiche crédit (tableau repliable), vue « Patrimoine »
+  (graphique 24 mois, variations 1 et 12 mois, répartition, tableau des données). Seed : PEA, assurance-vie, appartement + crédit 200 000 €. 8 tests API/unitaires + 1 e2e.
 - [x] **Tâche 6 — Import CSV bancaire**
   Parsing côté client (`src/csv.ts`) : encodage UTF-8 / Windows-1252, séparateur `;` ou `,`, dates JJ/MM/AAAA et AAAA-MM-JJ,
   montants FR/intl, colonnes montant ou débit + crédit, doublons (même compte/date/montant/libellé) ignorés par défaut,

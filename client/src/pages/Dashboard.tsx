@@ -10,6 +10,7 @@ import BudgetBar from '../components/BudgetBar';
 import GoalCard from '../components/GoalCard';
 import ForecastLine from '../components/ForecastLine';
 import SubscriptionsCard from '../components/SubscriptionsCard';
+import NetworthCard from '../components/NetworthCard';
 
 export default function Dashboard() {
   const { month, version, user } = useStore();
@@ -121,7 +122,10 @@ export default function Dashboard() {
         </section>
       </div>
 
-      <SubscriptionsCard version={version} />
+      <div className="grid-2 cards">
+        <NetworthCard version={version} />
+        <SubscriptionsCard version={version} />
+      </div>
 
       {goals.length > 0 && (
         <section className="panel">
