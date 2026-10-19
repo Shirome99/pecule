@@ -87,7 +87,52 @@ Aujourd'hui un virement compte comme une dépense + un revenu, ce qui fausse les
 - Sur l'Aperçu : ligne « À venir ce mois-ci : X € » qui additionne les récurrences pas encore passées.
 - **Fini quand** : une récurrence mensuelle créée avec une date de début 3 mois en arrière génère exactement 3 ou 4 opérations, même si on recharge plusieurs fois.
 
-### Tâche 3 — Import CSV bancaire
+### Tâche 3 — Prévision de fin de mois et « reste à dépenser par jour »
+But : répondre en un coup d'œil à « combien je peux encore dépenser ce mois-ci sans finir dans le rouge ? ».
+- Toute la logique de calcul va dans un module pur `server/src/forecast.js`, sans accès à la base, qui reçoit les données et une date `now`. Les tests fixent `now`, sans dépendre de la date réelle.
+- Endpoint `GET /api/forecast?month=YYYY-MM`. Il ne fait une prévision que pour le mois en cours ; pour un mois passé, il renvoie les chiffres réels avec `is_past: true`.
+- Calculs (virements exclus partout) :
+  - `upcoming_income` / `upcoming_expenses` : occurrences récurrentes du mois dont la date est après aujourd'hui et pas encore générées.
+  - `variable_daily_rate` : médiane, sur les 3 derniers mois complets, des dépenses **non récurrentes** divisées par le nombre de jours du mois. Avec moins d'un mois d'historique, utiliser le rythme du mois en cours.
+  - `projected_end_balance` = solde actuel des comptes de type courant / espèces / carte + `upcoming_income` − `upcoming_expenses` − `variable_daily_rate` × jours restants.
+  - `safe_to_spend` = revenus du mois (réalisés + à venir) − dépenses du mois (réalisées + récurrentes à venir) − épargne prévue (somme des virements récurrents vers les comptes épargne).
+  - `safe_per_day` = `safe_to_spend` / jours restants, aujourd'hui inclus. Si c'est négatif, renvoyer le dépassement.
+- UI Aperçu, mois en cours uniquement : sous le grand chiffre, une ligne « Tu peux dépenser **28 €/jour** jusqu'au 31 » (ou « Tu dépasses de 85 € ce mois-ci » en rouge), et « Fin de mois estimée : +420 € ». Un lien « Comment c'est calculé ? » ouvre une modale qui détaille chaque terme en euros.
+- **Fini quand** : tests unitaires de `forecast.js` sur au moins 5 cas (début de mois, dernier jour, aucun historique, dépassement, avec récurrences et virements d'épargne) + test API.
+
+### Tâche 4 — Détection automatique des abonnements
+But : voir tous ses abonnements, ce qu'ils coûtent à l'année, et être prévenu quand un prix augmente.
+- Module pur `server/src/subscriptions.js` qui reçoit une liste d'opérations et renvoie les abonnements détectés :
+  - Normalisation du libellé : majuscules, suppression des accents, des chiffres, des dates, des références de carte (`CB`, `PRLV`, `SEPA`, numéros) et des espaces en trop.
+  - Est un abonnement : une dépense (hors virements) dont le libellé normalisé apparaît dans **au moins 3 mois distincts sur les 6 derniers**, avec un intervalle de 25 à 35 jours (mensuel) ou 350 à 380 jours (annuel, 2 occurrences suffisent), et un montant stable (écart ≤ 15 % ou ≤ 2 € par rapport à la médiane).
+  - Pour chaque abonnement : libellé affiché, catégorie la plus fréquente, montant actuel, fréquence, coût annuel, dernière date, prochaine date attendue, et `price_change` si le dernier montant diffère de plus de 5 % du précédent (ancien montant, nouveau montant, date).
+- Endpoint `GET /api/subscriptions`. Exclure ce qui est déjà une opération récurrente (tâche 2) et ce que l'utilisateur a ignoré (table `subscription_ignores` : user_id + libellé normalisé).
+- Actions : `POST /api/subscriptions/ignore` et « Suivre comme récurrence », qui crée une opération récurrente à partir de l'abonnement détecté.
+- UI :
+  - Page « Abonnements », accessible depuis l'Aperçu et la page Comptes (ne pas ajouter de 5e onglet sur mobile). Total mensuel et annuel en haut, liste triée par coût annuel, badge « Prix en hausse » en `--warn` avec « 9,99 € → 11,99 € depuis le 5 sept. ».
+  - Sur l'Aperçu : une carte compacte « Abonnements : 64 €/mois, 768 €/an », plus une alerte si un prix a augmenté dans les 60 derniers jours.
+- `seed-demo.js` : ajouter Spotify (10,99 € puis 12,99 € les 2 derniers mois), une salle de sport mensuelle et une assurance annuelle, sous des libellés bancaires réalistes (`PRLV SEPA SPOTIFY P1A2B3`, `CB BASIC FIT 12/09`).
+- **Fini quand** : tests unitaires couvrant normalisation, détection mensuelle et annuelle, faux positifs (des courses fréquentes chez Carrefour à montant variable ne sont **pas** un abonnement), hausse de prix, et exclusion des ignorés.
+
+### Tâche 5 — Patrimoine net
+But : suivre tout ce que je possède moins ce que je dois, et son évolution dans le temps.
+- Nouveaux types de compte, en gardant les existants :
+  - Placements : `pea`, `assurance_vie`, `cto`, `crypto`, `immobilier`, `autre_placement`.
+  - Dettes : `credit_immo`, `credit_conso`.
+  - Grouper les types en trois familles : **liquidités** (courant, épargne, espèces, carte), **placements**, **dettes**.
+- **Placements** : leur valeur ne vient pas des opérations mais de **valorisations** saisies à la main, dans une table `valuations` (account_id, date, valeur en centimes ; unique par compte et par date). La valeur à une date donnée est la dernière valorisation connue avant cette date. Les versements vers un placement passent par un virement (tâche 1) ; afficher pour chaque placement le total versé et la plus-value latente (valeur − total versé), en euros et en %.
+- **Crédits** : table `loans` (account_id, capital emprunté, taux annuel, durée en mois, date de 1re échéance, assurance mensuelle optionnelle). Module pur `server/src/amortization.js` qui calcule le tableau d'amortissement (mensualité constante) et le capital restant dû à une date. La dette vaut le capital restant dû, compté en négatif.
+- Les comptes de placement et de crédit sont **exclus** des revenus, dépenses, budgets, prévisions et du « Solde total » de l'Aperçu, qui reste celui des liquidités.
+- Endpoint `GET /api/networth?months=24` : pour chaque fin de mois, liquidités (solde reconstitué à partir des opérations), placements (dernière valorisation), dettes (capital restant dû) et patrimoine net. Endpoint `GET /api/loans/:id/schedule` pour le tableau d'amortissement.
+- UI :
+  - Page Comptes réorganisée en trois sections, Liquidités / Placements / Dettes, chacune avec son total.
+  - Fiche placement : historique des valorisations + bouton « Mettre à jour la valeur ».
+  - Fiche crédit : capital restant dû, mensualité, date de fin, coût total des intérêts, et le tableau d'amortissement repliable.
+  - Nouvelle vue « Patrimoine », accessible depuis l'Aperçu : patrimoine net actuel, variation sur 1 mois et sur 12 mois, courbe sur 24 mois (aire empilée liquidités + placements, dettes en dessous de zéro, ligne du patrimoine net), et répartition par famille.
+- `seed-demo.js` : un PEA avec des versements mensuels et des valorisations mensuelles qui varient, une assurance-vie, et un crédit immo de 200 000 € sur 20 ans à 3,5 % commencé il y a 3 ans.
+- **Fini quand** : `amortization.js` testé contre un cas connu (200 000 € sur 240 mois à 3,5 % donne une mensualité de 1 159,92 €, avec une tolérance de 0,01 €), dernière échéance qui ramène le capital à 0 ; test que des placements et des crédits ne modifient ni les stats mensuelles ni les budgets ; test de `/api/networth`.
+
+### Tâche 6 — Import CSV bancaire
 - Page ou modale « Importer » accessible depuis Opérations.
 - Étapes : choix du fichier → détection du séparateur (`;` ou `,`) et de l'encodage → choix des colonnes date / libellé / montant (ou débit + crédit séparés) → aperçu des 20 premières lignes → import.
 - Formats à gérer : dates `JJ/MM/AAAA` et `AAAA-MM-JJ`, montants `1 234,56` et `-1234.56`.
@@ -96,24 +141,24 @@ Aujourd'hui un virement compte comme une dépense + un revenu, ce qui fausse les
 - Le parsing se fait côté client ; le serveur reçoit un tableau via `POST /api/transactions/bulk` (max 2000 lignes, une seule transaction SQL).
 - **Fini quand** : l'export CSV de l'app peut être réimporté dans un compte vide et donne les mêmes totaux (test).
 
-### Tâche 4 — PWA installable
+### Tâche 7 — PWA installable
 - `vite-plugin-pwa` : manifest (nom « Pécule », couleur `#123b3a`, icônes 192/512 + maskable générées depuis `public/favicon.svg`), service worker qui met en cache le shell de l'app.
 - Hors ligne : l'app s'ouvre et affiche un bandeau « Hors ligne : tes données s'afficheront au retour du réseau ». Pas de synchro hors ligne pour l'instant.
 - Ajouter `apple-touch-icon` et les meta iOS.
 - **Fini quand** : Lighthouse (ou la vérification Playwright du manifest + du service worker) confirme que l'app est installable.
 
-### Tâche 5 — Objectifs d'épargne
+### Tâche 8 — Objectifs d'épargne
 - Table `goals` : nom, montant cible, date cible optionnelle, compte lié optionnel.
 - La progression = solde du compte lié, ou contributions manuelles si pas de compte lié.
 - Afficher sur l'Aperçu (si au moins un objectif existe) : barre de progression + « X € par mois pour y arriver à temps ».
 - **Fini quand** : création, modification, suppression et calcul du montant mensuel testés.
 
-### Tâche 6 — Prêt pour la production
+### Tâche 9 — Sécurité avant mise en ligne
 - Le serveur refuse de démarrer en `NODE_ENV=production` si `JWT_SECRET` est absent ou vaut la valeur par défaut.
 - `helmet`, limitation de débit sur `/api/auth/*` (5 essais/minute/IP), CORS restreint à l'origine configurée en prod.
-- `Dockerfile` multi-étapes (build du client, image finale Node qui sert API + front) + `docker-compose.yml` avec un volume pour la base SQLite.
-- Mettre à jour le `README.md` (installation, variables d'environnement, déploiement, nouvelles routes API).
-- **Fini quand** : `docker compose up` sert l'app sur un seul port et les tests passent toujours.
+- Mettre à jour le `README.md` (installation, variables d'environnement, nouvelles routes API).
+- Pas de Docker ni de déploiement pour l'instant : ce sera traité plus tard.
+- **Fini quand** : le démarrage en production sans `JWT_SECRET` échoue avec un message clair, la 6e tentative de connexion en une minute renvoie 429, et les tests passent toujours.
 
 ## 5. Fin de mission
 
