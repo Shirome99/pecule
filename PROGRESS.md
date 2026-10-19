@@ -78,7 +78,11 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
 
 ## Phase 2 — Améliorations
 
-- [ ] **Tâche 10 — Finitions UX et performance**
+- [x] **Tâche 10 — Finitions UX et performance**
+  Pages en `React.lazy`, Recharts chargé seulement par le graphique de l'Aperçu et la page Patrimoine : JS initial 87 kB gzip,
+  vérifié après chaque build (`scripts/check-bundle.mjs`). Toast réutilisable + « Annuler » (réinsertion à l'identique, `POST /api/undo`)
+  pour opérations, budgets, catégories. Parcours de premier lancement en 3 écrans, écran Réglages (thème, prénom, mot de passe, export),
+  raccourcis N, /, ← →. axe : 0 violation grave sur 7 pages en clair et en sombre (contrastes de `--ink-2` et `--in` corrigés). 7 tests API + 9 e2e.
 - [ ] **Tâche 11 — Règles de catégorisation et tags**
 - [ ] **Tâche 12 — Comparaisons automatiques (insights)**
 - [ ] **Tâche 13 — Calendrier et vue annuelle**

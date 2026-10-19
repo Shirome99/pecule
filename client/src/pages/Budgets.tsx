@@ -5,6 +5,7 @@ import { money } from '../format';
 import MonthPicker from '../components/MonthPicker';
 import BudgetBar from '../components/BudgetBar';
 import Modal from '../components/Modal';
+import { useUndoDelete } from '../useUndoDelete';
 
 export default function Budgets() {
   const { month, version, categories, refresh } = useStore();
@@ -66,6 +67,7 @@ function BudgetForm({ budget, options, onClose, onSaved }: {
   const [categoryId, setCategoryId] = useState(budget?.category_id ?? options[0]?.id ?? 0);
   const [limit, setLimit] = useState(budget ? String(budget.monthly_limit) : '');
   const [error, setError] = useState('');
+  const undoDelete = useUndoDelete();
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -76,9 +78,9 @@ function BudgetForm({ budget, options, onClose, onSaved }: {
   }
 
   async function remove() {
-    if (!budget || !confirm(`Supprimer le budget ${budget.name} ?`)) return;
-    await api.del(`/budgets/${budget.id}`);
-    onSaved();
+    if (!budget) return;
+    onClose();
+    await undoDelete(`/budgets/${budget.id}`, `Budget ${budget.name} supprimé.`);
   }
 
   return (

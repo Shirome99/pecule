@@ -4,6 +4,7 @@ const { z } = require('zod');
 const { db } = require('../db');
 const { wrap, toCents, fromCents, isoDate, auth, owns, checkTxRefs } = require('../lib');
 const { getTransferLines, saveTransfer } = require('../transfers');
+const { remember } = require('../undo');
 
 const router = express.Router();
 
@@ -82,9 +83,14 @@ router.put('/api/transactions/:id', auth, wrap((req, res) => {
 router.delete('/api/transactions/:id', auth, wrap((req, res) => {
   if (!owns('transactions', req.params.id, req.userId)) return res.status(404).json({ error: 'Opération introuvable' });
   const { transfer_id } = db.prepare('SELECT transfer_id FROM transactions WHERE id = ?').get(req.params.id);
+  // annulation : les lignes supprimées (les deux d'un virement) sont gardées pour être réinsérées à l'identique
+  const lines = transfer_id
+    ? db.prepare('SELECT * FROM transactions WHERE transfer_id = ? AND user_id = ?').all(transfer_id, req.userId)
+    : db.prepare('SELECT * FROM transactions WHERE id = ?').all(req.params.id);
+  const undo = remember(req.userId, { transactions: lines });
   if (transfer_id) db.prepare('DELETE FROM transactions WHERE transfer_id = ? AND user_id = ?').run(transfer_id, req.userId);
   else db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  res.json({ ok: true, undo });
 }));
 
 // import en masse (CSV analysé côté client) : montants signés en euros, une seule transaction SQL

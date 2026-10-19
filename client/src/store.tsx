@@ -7,6 +7,8 @@ type Store = {
   ready: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  /** profil modifié (prénom, fin du parcours d'accueil) */
+  updateUser: (u: User) => void;
   accounts: Account[];
   categories: Category[];
   month: string;
@@ -38,6 +40,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setAccounts([]);
     setCategories([]);
+  }, []);
+
+  const updateUser = useCallback((u: User) => {
+    cacheUser(u);
+    setUser(u);
   }, []);
 
   const login = useCallback((token: string, u: User) => {
@@ -76,10 +83,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api.get<Category[]>('/categories').then(setCategories).catch(() => {});
   }, [user, version]);
 
+  // compte neuf : la première opération (ajoutée sans finir l'accueil) remplace le parcours par l'Aperçu
+  const onboarding = !!user?.onboarding;
+  useEffect(() => {
+    if (onboarding && version > 0) api.get<User>('/me').then(updateUser).catch(() => {});
+  }, [onboarding, version, updateUser]);
+
   return (
     <Ctx.Provider
       value={{
-        user, ready, login, logout, accounts, categories, month, setMonth, version, refresh,
+        user, ready, login, logout, updateUser, accounts, categories, month, setMonth, version, refresh,
         newTxOpen, openNewTx: () => setNewTxOpen(true), closeNewTx: () => setNewTxOpen(false),
       }}
     >

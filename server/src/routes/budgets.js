@@ -3,6 +3,7 @@ const express = require('express');
 const { z } = require('zod');
 const { db } = require('../db');
 const { wrap, toCents, fromCents, auth, owns } = require('../lib');
+const { remember } = require('../undo');
 const { FAMILIES, sqlList } = require('../accounts');
 
 // seules les liquidités entrent dans les budgets
@@ -36,8 +37,9 @@ router.post('/api/budgets', auth, wrap((req, res) => {
 
 router.delete('/api/budgets/:id', auth, wrap((req, res) => {
   if (!owns('budgets', req.params.id, req.userId)) return res.status(404).json({ error: 'Budget introuvable' });
+  const undo = remember(req.userId, { budgets: db.prepare('SELECT * FROM budgets WHERE id = ?').all(req.params.id) });
   db.prepare('DELETE FROM budgets WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  res.json({ ok: true, undo });
 }));
 
 module.exports = router;

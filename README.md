@@ -45,7 +45,7 @@ npm run dev
 cd server && npm test                       # API : vitest + supertest, base en mémoire
 cd client && npx tsc -b && npm run build    # typage + build
 cd client && npx playwright install chromium   # une fois
-cd client && npm run test:e2e               # e2e Playwright en 1366×900 et 390×844 + PWA sur le build de prod
+cd client && npm run test:e2e               # build + taille du JS initial (< 250 kB gzip) + e2e 1366×900 et 390×844 (dont axe) + PWA
 SCREENSHOTS=1 npx playwright test screenshots   # captures de tous les écrans dans docs/screenshots/
 ```
 
@@ -114,7 +114,10 @@ Les erreurs renvoient `{ error: "message en français" }`.
 |---|---|---|
 | GET | `/api/health` | Santé du serveur (Docker, supervision) |
 | POST | `/api/auth/register` · `/api/auth/login` | Inscription / connexion → `{ token, user }` (le login génère les récurrences dues) |
-| GET | `/api/me` | Utilisateur courant |
+| GET/PUT | `/api/me` | Utilisateur courant (`onboarding` : afficher le parcours de premier lancement) ; modifier son prénom `{ name }` |
+| PUT | `/api/me/password` | `{ current_password, new_password }` |
+| POST | `/api/me/onboarding` | Parcours de premier lancement terminé ou passé |
+| POST | `/api/undo` | `{ token }` : annule une suppression d'opération, de budget ou de catégorie (jeton renvoyé par `DELETE`, valable 60 s) |
 | GET/POST/PUT/DELETE | `/api/accounts` | Comptes ; `balance` = valeur actuelle selon la famille (`family`), + `invested`, `gain`, `gain_pct` pour un placement |
 | GET/POST/DELETE | `/api/categories` | Catégories (11 créées à l'inscription) |
 | GET/POST/PUT/DELETE | `/api/transactions` | Opérations ; filtres `month`, `from`, `to`, `account_id`, `category_id`, `q`, `limit` (max 2000). Modifier ou supprimer une ligne de virement agit sur les deux |

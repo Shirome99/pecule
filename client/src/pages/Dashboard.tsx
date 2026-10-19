@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api, type Budget, type Forecast, type Goal, type Stats, type Transaction } from '../api';
 import { useStore } from '../store';
 import { currentMonth, money, moneyRound, monthLabel, signed } from '../format';
@@ -11,6 +10,8 @@ import GoalCard from '../components/GoalCard';
 import ForecastLine from '../components/ForecastLine';
 import SubscriptionsCard from '../components/SubscriptionsCard';
 import NetworthCard from '../components/NetworthCard';
+
+const TrendChart = lazy(() => import('../components/TrendChart'));
 
 export default function Dashboard() {
   const { month, version, user } = useStore();
@@ -92,18 +93,8 @@ export default function Dashboard() {
             <h2>Six derniers mois</h2>
           </div>
           <div style={{ height: 220 }}>
-            <ResponsiveContainer>
-              <BarChart data={stats.trend.map((t) => ({ ...t, label: monthLabel(t.month, true) }))} barGap={2}>
-                <CartesianGrid vertical={false} stroke="var(--line)" />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} stroke="var(--ink-2)" />
-                <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--ink-2)" width={48}
-                  tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}k` : v)} />
-                <Tooltip formatter={(v) => money(Number(v))} cursor={{ fill: 'var(--wash)' }}
-                  contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontFamily: 'inherit' }} />
-                <Bar dataKey="income" name="Revenus" fill="var(--in)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Dépenses" fill="var(--out)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* Recharts n'est téléchargé qu'ici, après le premier affichage de l'Aperçu */}
+            <Suspense fallback={null}><TrendChart trend={stats.trend} /></Suspense>
           </div>
         </section>
 

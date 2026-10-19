@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, getToken, type Transaction } from '../api';
+import { useLocation } from 'react-router-dom';
+import { api, downloadExport, type Transaction } from '../api';
 import { useStore } from '../store';
 import { dayLabel, money } from '../format';
 import MonthPicker from '../components/MonthPicker';
@@ -13,6 +14,8 @@ export default function Transactions() {
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [importing, setImporting] = useState(false);
+  // raccourci « / » depuis une autre page : le curseur arrive dans la recherche
+  const focusSearch = !!(useLocation().state as { focusSearch?: boolean } | null)?.focusSearch;
 
   useEffect(() => {
     const p = new URLSearchParams({ month });
@@ -34,14 +37,6 @@ export default function Transactions() {
   const totalIn = (txs ?? []).filter((t) => counted(t) && t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const totalOut = (txs ?? []).filter((t) => counted(t) && t.amount < 0).reduce((s, t) => s - t.amount, 0);
 
-  async function exportCsv() {
-    const res = await fetch('/api/export.csv', { headers: { Authorization: `Bearer ${getToken()}` } });
-    const url = URL.createObjectURL(await res.blob());
-    const a = Object.assign(document.createElement('a'), { href: url, download: 'operations.csv' });
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <div className="page">
       <header className="page-head">
@@ -50,7 +45,7 @@ export default function Transactions() {
       </header>
 
       <div className="filters">
-        <input type="search" placeholder="Rechercher un libellé" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Rechercher" />
+        <input type="search" placeholder="Rechercher un libellé" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Rechercher" aria-keyshortcuts="/" autoFocus={focusSearch} />
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Catégorie">
           <option value="">Toutes catégories</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
@@ -63,7 +58,7 @@ export default function Transactions() {
         )}
         <span className="filters-actions">
           <button className="btn ghost" onClick={() => setImporting(true)}>Importer</button>
-          <button className="btn ghost" onClick={exportCsv}>Exporter en CSV</button>
+          <button className="btn ghost" onClick={downloadExport}>Exporter en CSV</button>
         </span>
       </div>
 

@@ -148,3 +148,26 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
 `routes/wealth.js`). Domaines en plus de ceux demandés : wealth, transfers, recurring, forecast, subscriptions, goals.
 `saveTransfer` (accès base) va dans `src/transfers.js`, partagé par les routes opérations et virements.
 **Écarté** : monter les routeurs sous un préfixe (`app.use('/api/accounts', …)`) qui aurait obligé à déplacer des routes.
+
+## 2026-10-19 — Finitions UX (tâche 10)
+**Choix** :
+- **Annuler = réinsertion à l'identique** : la suppression est immédiate (les totaux se mettent à jour tout de suite) ; la route
+  garde en mémoire les lignes supprimées (mêmes `id`) et les liens à refaire, et renvoie un jeton. `POST /api/undo` les
+  réinsère dans une transaction SQL. Pour une catégorie : la catégorie, ses budgets (cascade) et la catégorie de ses
+  opérations et récurrences. Jeton valable 60 s (le toast reste 6 s), à usage unique, lié à l'utilisateur ; perdu si le
+  serveur redémarre (la suppression reste alors définitive, message clair). Plus de `confirm()` : le toast le remplace.
+  **Écarté** : suppression différée côté serveur (colonne `deleted_at` à filtrer dans toutes les requêtes, ou délai pendant
+  lequel les totaux affichés seraient faux).
+- **Premier lancement** : affiché si `users.onboarded_at` est vide **et** qu'il n'y a aucune opération (migration idempotente) ;
+  terminer ou passer les 3 écrans le remplit. Le solde saisi devient le solde de départ du compte courant ; le salaire crée une
+  récurrence mensuelle à partir du **prochain** versement (le solde saisi compte déjà le dernier). Les « 3 catégories les plus
+  courantes » d'un compte neuf (sans historique) : Courses, Restaurants, Transport.
+- **Thème** : `data-theme` sur `<html>` (absent = Système), tokens sombres déclarés pour `prefers-color-scheme` et pour
+  `[data-theme='dark']` ; nouveaux tokens `--chrome` / `--chrome-line` (barre latérale, toast). Appliqué dans `main.tsx`
+  (un script inline dans `index.html` serait bloqué par la CSP).
+- Réglages : lien dans l'en-tête de Comptes (toutes tailles) et dans le pied de la barre latérale ; « Se déconnecter » y est
+  aussi, car la barre d'onglets mobile n'en avait pas.
+- Raccourcis : ignorés dans un champ, avec une modale ouverte ou avec Ctrl/Alt/Méta ; ← → seulement sur une page qui a un
+  sélecteur de mois ; « / » hors de Opérations y mène et place le curseur dans la recherche.
+- Contrastes (axe) : `--ink-2` #5b6f6d → #536664 et `--in` #2f7d5b → #2a7353 en clair (4,3:1 et 4,4:1 → ≥ 4,9:1).
+**Écarté** : un service worker / IndexedDB pour l'annulation hors ligne.

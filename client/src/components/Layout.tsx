@@ -1,5 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Suspense, useEffect } from 'react';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import { currentMonth, shiftMonth } from '../format';
 import TransactionForm from './TransactionForm';
 
 const NAV = [
@@ -18,7 +20,32 @@ const NAV = [
 ];
 
 export default function Layout() {
-  const { user, logout, newTxOpen, openNewTx, closeNewTx } = useStore();
+  const { user, logout, newTxOpen, openNewTx, closeNewTx, month, setMonth } = useStore();
+  const navigate = useNavigate();
+
+  // raccourcis clavier (desktop) : N nouvelle opération, / recherche, ← → mois. Inactifs dans un champ ou une modale.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('.modal')) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        openNewTx();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        const search = document.querySelector<HTMLInputElement>('input[type="search"]');
+        if (search) search.focus();
+        else navigate('/transactions', { state: { focusSearch: true } });
+      } else if (document.querySelector('.month-picker')) {
+        if (e.key === 'ArrowLeft') setMonth(shiftMonth(month, -1));
+        else if (e.key === 'ArrowRight' && month < currentMonth()) setMonth(shiftMonth(month, 1));
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [month, setMonth, openNewTx, navigate]);
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -26,7 +53,7 @@ export default function Layout() {
           <img src="/favicon.svg" alt="" width={28} height={28} />
           <span>Pécule</span>
         </div>
-        <button className="btn primary add-desktop" onClick={openNewTx}>+ Nouvelle opération</button>
+        <button className="btn primary add-desktop" onClick={openNewTx} aria-keyshortcuts="N">+ Nouvelle opération</button>
         <nav className="nav">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className="nav-link">
@@ -37,12 +64,15 @@ export default function Layout() {
         </nav>
         <div className="sidebar-foot">
           <span className="who">{user?.name}</span>
+          <Link to="/reglages" className="link">Réglages</Link>
           <button className="link" onClick={logout}>Se déconnecter</button>
         </div>
       </aside>
 
       <main className="main">
-        <Outlet />
+        <Suspense fallback={<div className="page"><p className="muted">Chargement…</p></div>}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <button className="fab" onClick={openNewTx} aria-label="Nouvelle opération">+</button>

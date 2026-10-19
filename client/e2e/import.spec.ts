@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
-import { goTo, loginDemo } from './helpers';
+import { goTo, loginDemo, registerNew } from './helpers';
 
 type Stats = { trend: { month: string; income: number; expenses: number }[] };
 type Account = { id: number; family: string };
@@ -33,13 +33,9 @@ test("l'export CSV réimporté dans un compte vide donne les mêmes totaux", asy
 
   // nouvel utilisateur, compte vide
   await page.evaluate(() => localStorage.clear());
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Créer un compte' }).click();
-  await page.getByLabel('Prénom').fill('Import');
-  await page.getByLabel('Email').fill(`import-${info.project.name}-${Date.now()}@test.fr`);
-  await page.getByLabel('Mot de passe').fill('secret12');
-  await page.getByRole('button', { name: 'Créer mon compte' }).click();
-  await expect(page.getByRole('heading', { name: /Bonjour/ })).toBeVisible();
+  await registerNew(page, 'Import');
+  // compte neuf : le parcours d'accueil s'affiche, on va directement importer
+  await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
 
   await goTo(page, 'Opérations');
   await page.getByRole('button', { name: 'Importer' }).click();

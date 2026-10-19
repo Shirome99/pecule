@@ -3,6 +3,7 @@ import { api, type Transaction } from '../api';
 import { useStore } from '../store';
 import { today } from '../format';
 import Modal from './Modal';
+import { useUndoDelete } from '../useUndoDelete';
 
 type Props = { tx?: Transaction; onClose: () => void };
 type Kind = 'expense' | 'income' | 'transfer';
@@ -10,6 +11,7 @@ const KIND_LABELS: Record<Kind, string> = { expense: 'Dépense', income: 'Revenu
 
 export default function TransactionForm({ tx, onClose }: Props) {
   const { accounts, categories, refresh } = useStore();
+  const undoDelete = useUndoDelete();
   const [type, setType] = useState<Kind>(tx?.transfer_id ? 'transfer' : tx && tx.amount > 0 ? 'income' : 'expense');
   const [amount, setAmount] = useState(tx ? String(Math.abs(tx.amount)).replace('.', ',') : '');
   const [label, setLabel] = useState(tx?.label ?? '');
@@ -55,11 +57,11 @@ export default function TransactionForm({ tx, onClose }: Props) {
     }
   }
 
+  // pas de confirmation : le toast propose « Annuler » pendant 6 s
   async function remove() {
-    if (!tx || !confirm(tx.transfer_id ? 'Supprimer ce virement (sur les deux comptes) ?' : 'Supprimer cette opération ?')) return;
-    await api.del(`/transactions/${tx.id}`);
-    refresh();
+    if (!tx) return;
     onClose();
+    await undoDelete(`/transactions/${tx.id}`, tx.transfer_id ? 'Virement supprimé.' : 'Opération supprimée.');
   }
 
   return (

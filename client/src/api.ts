@@ -49,8 +49,19 @@ export const api = {
   del: <T>(url: string) => request<T>('DELETE', url),
 };
 
+/** Télécharge toutes les opérations en CSV (le fichier se réimporte tel quel). */
+export async function downloadExport() {
+  const res = await fetch('/api/export.csv', { headers: { Authorization: `Bearer ${getToken()}` } });
+  if (!res.ok) throw new ApiError(res.status, 'Export impossible pour le moment');
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement('a'), { href: url, download: 'operations.csv' });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ---------- types ----------
-export type User = { id: number; email: string; name: string; currency: string };
+/** `onboarding` : compte neuf sans opération, le parcours de premier lancement remplace l'Aperçu */
+export type User = { id: number; email: string; name: string; currency: string; onboarding?: boolean };
 export type AccountType =
   | 'courant' | 'epargne' | 'especes' | 'carte'
   | 'pea' | 'assurance_vie' | 'cto' | 'crypto' | 'immobilier' | 'autre_placement'

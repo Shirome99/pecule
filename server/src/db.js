@@ -134,6 +134,9 @@ CREATE TABLE IF NOT EXISTS goals (
 );
 `);
 
+// premier lancement : date à laquelle le parcours d'accueil a été terminé ou passé
+addColumn('users', 'onboarded_at', 'TEXT');
+
 const DEFAULT_CATEGORIES = [
   ['Logement', 'expense', '#6366f1', '🏠'],
   ['Courses', 'expense', '#10b981', '🛒'],

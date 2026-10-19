@@ -34,3 +34,13 @@ export async function accountBalance(page: Page, name: string) {
   const row = page.locator('.account-row', { hasText: name });
   return parseEuros((await row.locator('.tx-amount').textContent()) ?? '');
 }
+
+/** Crée un compte neuf par l'interface (parcours de premier lancement affiché ensuite). */
+export async function registerNew(page: Page, name = 'Camille') {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Créer un compte' }).click();
+  await page.getByLabel('Prénom').fill(name);
+  await page.getByLabel('Email').fill(`neuf-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@test.fr`);
+  await page.getByLabel('Mot de passe').fill('secret12');
+  await page.getByRole('button', { name: 'Créer mon compte' }).click();
+}

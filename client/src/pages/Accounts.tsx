@@ -5,28 +5,30 @@ import { useStore } from '../store';
 import { ACCOUNT_TYPES, FAMILIES, frequencyLabel, money, percent, shortDate, signed } from '../format';
 import Modal from '../components/Modal';
 import GoalCard from '../components/GoalCard';
+import { useUndoDelete } from '../useUndoDelete';
 import { AccountForm, InvestmentSheet, LoanSheet } from '../components/AccountSheets';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316', '#0ea5e9', '#6b7280'];
 
 export default function Accounts() {
-  const { accounts, categories, refresh } = useStore();
+  const { accounts, categories } = useStore();
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
   const [viewing, setViewing] = useState<Account | null>(null);
   const [newCat, setNewCat] = useState(false);
+  const undoDelete = useUndoDelete();
   // la fiche ouverte suit les données rechargées (valeur mise à jour…)
   const viewed = viewing && accounts.find((a) => a.id === viewing.id);
   const open = (a: Account) => (a.family === 'liquid' ? setEditing(a) : setViewing(a));
 
-  async function removeCategory(id: number, name: string) {
-    if (!confirm(`Supprimer la catégorie ${name} ? Ses opérations deviendront « Sans catégorie ».`)) return;
-    await api.del(`/categories/${id}`);
-    refresh();
-  }
+  // ses opérations passent « Sans catégorie » ; « Annuler » remet tout comme avant
+  const removeCategory = (id: number, name: string) => undoDelete(`/categories/${id}`, `Catégorie ${name} supprimée.`);
 
   return (
     <div className="page">
-      <header className="page-head"><h1>Comptes</h1></header>
+      <header className="page-head row">
+        <h1>Comptes</h1>
+        <Link to="/reglages" className="btn ghost">Réglages</Link>
+      </header>
 
       {(Object.keys(FAMILIES) as (keyof typeof FAMILIES)[]).map((family) => {
         const list = accounts.filter((a) => a.family === family);
