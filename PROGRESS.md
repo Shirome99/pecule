@@ -21,7 +21,11 @@
   mois complets, sinon rythme du mois), fin de mois estimée, reste à dépenser et par jour, dépassement ; mois passé → chiffres réels.
   Virements récurrents ajoutés (`recurring.to_account_id`) pour l'épargne prévue ; le seed les utilise. Aperçu : « Tu peux dépenser X €/jour jusqu'au N »,
   « Fin de mois estimée », modale « Comment c'est calculé ? ». 7 tests unitaires + 2 API + 1 e2e.
-- [ ] Tâche 4 — Détection automatique des abonnements
+- [x] **Tâche 4 — Détection automatique des abonnements**
+  Module pur `src/subscriptions.js` : normalisation des libellés bancaires, détection mensuelle (≥ 3 mois sur 6, intervalle
+  médian 25–35 j) et annuelle (2 occurrences à 350–380 j), montant stable, hausse de prix > 5 %. `GET /api/subscriptions`,
+  `POST /api/subscriptions/ignore` (table `subscription_ignores`) et `/track` (crée la récurrence dès la prochaine échéance).
+  UI : page « Abonnements » (depuis l'Aperçu et Comptes, pas de 5e onglet), carte sur l'Aperçu avec alerte de hausse. Seed : Spotify, Basic Fit, assurance annuelle. 6 tests unitaires + 2 API + 1 e2e.
 - [ ] Tâche 5 — Patrimoine net
 - [x] **Tâche 6 — Import CSV bancaire**
   Parsing côté client (`src/csv.ts`) : encodage UTF-8 / Windows-1252, séparateur `;` ou `,`, dates JJ/MM/AAAA et AAAA-MM-JJ,

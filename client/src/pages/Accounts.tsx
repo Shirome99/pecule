@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { api, type Account, type AccountType, type Goal, type Recurring } from '../api';
 import { useStore } from '../store';
 import { ACCOUNT_TYPES, frequencyLabel, money, shortDate, signed } from '../format';
@@ -255,7 +256,10 @@ function RecurringSection() {
 
   return (
     <section className="panel">
-      <div className="panel-head"><h2>Opérations récurrentes</h2></div>
+      <div className="panel-head">
+        <h2>Opérations récurrentes</h2>
+        <Link to="/abonnements" className="link">Abonnements détectés</Link>
+      </div>
       {items === null ? <p className="muted">Chargement…</p> : items.length === 0 ? (
         <p className="muted">Aucune pour l'instant. Coche « Répéter chaque mois » en ajoutant une opération : loyer, salaire, abonnements…</p>
       ) : (

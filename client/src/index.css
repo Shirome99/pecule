@@ -224,6 +224,17 @@ button.budget:hover { border-color: var(--ink-2); }
 .budget-left { font-size: 0.8rem; color: var(--ink-2); }
 .budget.over .budget-left { color: var(--out); font-weight: 600; }
 
+/* ---------- abonnements ---------- */
+.back-link { display: inline-flex; align-items: center; min-height: 44px; }
+.sub-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.sub-item { gap: 0.75rem; }
+.sub-top { display: flex; align-items: center; gap: 0.85rem; }
+.sub-cost { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+.sub-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+.sub-item .rec-actions { justify-content: flex-end; flex-wrap: wrap; }
+.subs-card { gap: 0.6rem; }
+.subs-card h2 { font-size: 1rem; }
+
 /* ---------- objectifs ---------- */
 .goal-item { display: flex; flex-direction: column; gap: 0.4rem; }
 .goal-item .goal { flex: 1; }

@@ -9,6 +9,7 @@ import TxRow from '../components/TxRow';
 import BudgetBar from '../components/BudgetBar';
 import GoalCard from '../components/GoalCard';
 import ForecastLine from '../components/ForecastLine';
+import SubscriptionsCard from '../components/SubscriptionsCard';
 
 export default function Dashboard() {
   const { month, version, user } = useStore();
@@ -119,6 +120,8 @@ export default function Dashboard() {
           )}
         </section>
       </div>
+
+      <SubscriptionsCard version={version} />
 
       {goals.length > 0 && (
         <section className="panel">

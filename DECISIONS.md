@@ -110,3 +110,17 @@ sont plus annoncés comme vérifiés) plutôt que supprimer des fichiers qui fon
 - Seuls les comptes liquides entrent dans les revenus/dépenses ; le solde de départ de la projection = courant + espèces + carte.
 - Mois futur : 400. Le reste par jour est arrondi au centime inférieur (prudent).
 **Écarté** : moyenne au lieu de la médiane (sensible à un mois exceptionnel).
+
+## 2026-10-19 — Abonnements détectés
+**Choix** :
+- Normalisation : tout mot contenant un chiffre est retiré (références `P1A2B3`, dates `12/09`, numéros de carte), plus une
+  courte liste de mots bancaires (CB, PRLV, SEPA, CARTE, FACTURE…). Libellé affiché = libellé normalisé en casse de titre.
+- Mensuel : on teste l'intervalle **médian** (pas chaque intervalle), pour tolérer un prélèvement décalé de quelques jours.
+- Un abonnement dont la dernière échéance date de plus de 45 jours (mensuel) ou 380 jours (annuel) est considéré comme arrêté.
+- Fenêtre de lecture : 760 jours (deux échéances annuelles), mais le critère mensuel reste « 3 mois sur les 6 derniers ».
+- Hausse de prix : dernier montant comparé au montant qui précédait la série actuelle (sinon, après deux mois au nouveau
+  tarif, « dernier vs précédent » ne verrait plus rien) ; la date affichée est celle du premier prélèvement au nouveau tarif.
+- Les totaux ne portent que sur les abonnements **détectés** : ceux déjà suivis en récurrence (ex. Netflix dans le seed)
+  sont exclus de la détection, comme demandé.
+- « Suivre comme récurrence » crée la règle à partir de la prochaine échéance attendue : aucune opération passée en double.
+**Écarté** : un lien « Abonnements » dans la barre d'onglets (interdit sur mobile) ; regrouper par commerçant via une IA.

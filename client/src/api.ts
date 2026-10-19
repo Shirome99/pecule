@@ -89,3 +89,10 @@ export type Forecast = {
   variable_daily_rate: number; rate_basis: 'history' | 'current_month'; history_months: number;
   spendable_balance: number; projected_end_balance: number; safe_to_spend: number; safe_per_day: number; overspend: number;
 };
+export type Subscription = {
+  key: string; label: string; frequency: 'monthly' | 'yearly'; amount: number; annual_cost: number;
+  category_id: number | null; category_name: string | null; category_icon: string | null; category_color: string | null;
+  account_id: number | null; account_name: string | null; occurrences: number; last_date: string; next_date: string;
+  price_change: { old_amount: number; new_amount: number; date: string } | null;
+};
+export type Subscriptions = { items: Subscription[]; monthly_total: number; annual_total: number };

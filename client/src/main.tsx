@@ -10,6 +10,7 @@ import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Accounts from './pages/Accounts';
 import OfflineBanner from './components/OfflineBanner';
+import Subscriptions from './pages/Subscriptions';
 
 function App() {
   const { user, ready } = useStore();
@@ -22,6 +23,7 @@ function App() {
         <Route path="transactions" element={<Transactions />} />
         <Route path="budgets" element={<Budgets />} />
         <Route path="comptes" element={<Accounts />} />
+        <Route path="abonnements" element={<Subscriptions />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -43,4 +43,8 @@ test('captures de tous les écrans', async ({ page }) => {
   await goTo(page, 'Comptes');
   await page.locator('.rec-row').first().waitFor();
   await shot('07-comptes');
+
+  await page.getByRole('link', { name: 'Abonnements détectés' }).click();
+  await page.locator('.sub-item').first().waitFor();
+  await shot('07b-abonnements');
 });

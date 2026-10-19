@@ -35,7 +35,6 @@ rec.run(uid, acc, cat['Transport'], -8640, 'Navigo', 2, startDate);
 rec.run(uid, acc, cat['Logement'], -115000, 'Loyer', 3, startDate);
 rec.run(uid, acc, cat['Abonnements'], -1399, 'Netflix', 5, startDate);
 rec.run(uid, acc, cat['Abonnements'], -1999, 'Forfait mobile', 8, startDate);
-rec.run(uid, acc, cat['Abonnements'], -3500, 'Salle de sport', 25, startDate);
 // virement mensuel de 300 € vers le Livret A
 db.prepare(`INSERT INTO recurring (user_id, account_id, to_account_id, amount, label, frequency, day, start_date)
   VALUES (?,?,?,?,?,'monthly',?,?)`).run(uid, acc, livret, -30000, 'Épargne du mois', 2, startDate);
@@ -53,8 +52,17 @@ db.transaction(() => {
     for (let k = 0; k < rnd(1, 3); k++) ins.run(uid, acc, cat['Loisirs'], -rnd(1000, 6000), ['Cinéma', 'Concert', 'Bowling', 'Livres'][k % 4], d(rnd(1, 28)));
     if (Math.random() > 0.4) ins.run(uid, acc, cat['Shopping'], -rnd(3000, 15000), 'Vêtements', d(rnd(10, 25)));
     if (Math.random() > 0.6) ins.run(uid, acc, cat['Santé'], -rnd(1500, 6000), 'Pharmacie', d(rnd(1, 28)));
+    // abonnements non suivis, sous des libellés bancaires réels : la page Abonnements les détecte
+    ins.run(uid, acc, cat['Abonnements'], i <= 1 ? -1299 : -1099, `PRLV SEPA SPOTIFY P${i}A2B3`, d(7));
+    ins.run(uid, acc, cat['Loisirs'], -2999, `CB BASIC FIT ${pad(12)}/${ym.slice(5)}`, d(12));
   }
 })();
+
+// assurance habitation annuelle : il y a 2 mois et il y a 14 mois
+for (const n of [2, 14]) {
+  const dt = new Date(today.getFullYear(), today.getMonth() - n, 15);
+  ins.run(uid, acc, cat['Logement'], -18900, `PRLV SEPA MMA IARD ${880000 + n}`, `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-15`);
+}
 
 // objectifs : l'un suit le Livret A, l'autre est alimenté à la main
 const inMonths = (n) => {
@@ -68,7 +76,7 @@ goal.run(uid, "Vacances d'été", 150000, inMonths(8), null, 45000);
 const budget = db.prepare('INSERT INTO budgets (user_id, category_id, monthly_limit) VALUES (?,?,?)');
 budget.run(uid, cat['Courses'], 40000);
 budget.run(uid, cat['Restaurants'], 15000);
-budget.run(uid, cat['Loisirs'], 10000);
+budget.run(uid, cat['Loisirs'], 15000);
 budget.run(uid, cat['Shopping'], 10000);
 
 console.log(`Compte démo prêt : ${EMAIL} / demo1234`);

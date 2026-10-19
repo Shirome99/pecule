@@ -87,6 +87,17 @@ addColumn('recurring', 'to_account_id', 'INTEGER REFERENCES accounts(id) ON DELE
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tx_recurring ON transactions(recurring_id, date)
   WHERE recurring_id IS NOT NULL`);
 
+// abonnements détectés que l'utilisateur a choisi d'ignorer (libellé normalisé)
+db.exec(`
+CREATE TABLE IF NOT EXISTS subscription_ignores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  label_norm TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, label_norm)
+);
+`);
+
 // objectifs d'épargne : progression = solde du compte lié, sinon total des versements manuels (saved)
 db.exec(`
 CREATE TABLE IF NOT EXISTS goals (
