@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { goTo, loginDemo } from './helpers';
+import { goTo, loginDemo, registerNew } from './helpers';
 
 // Captures de chaque écran : SCREENSHOTS=1 npm run test:e2e -- screenshots
 test.skip(!process.env.SCREENSHOTS, 'captures uniquement sur demande (SCREENSHOTS=1)');
@@ -60,4 +60,51 @@ test('captures de tous les écrans', async ({ page }) => {
   await page.getByRole('link', { name: 'Voir mon patrimoine' }).click();
   await page.locator('.recharts-area').first().waitFor();
   await shot('09-patrimoine');
+
+  // phase 2
+  await goTo(page, 'Opérations');
+  await page.getByRole('radio', { name: 'Calendrier' }).click();
+  await page.getByRole('grid').waitFor();
+  await shot('10-calendrier');
+  await page.getByRole('radio', { name: 'Liste' }).click();
+
+  await page.goto('/annee');
+  await page.locator('.year-table').waitFor();
+  await shot('11-vue-annuelle');
+
+  const d = new Date();
+  await page.goto(`/recap/${new Date(d.getFullYear(), d.getMonth() - 1, 15).toISOString().slice(0, 7)}`);
+  await page.locator('.recap-table').waitFor();
+  await shot('12-recap');
+
+  await page.goto('/reglages');
+  await page.locator('main h1').waitFor();
+  await shot('13-reglages');
+  await page.getByRole('link', { name: 'Gérer' }).click();
+  await page.locator('.account-row').first().waitFor();
+  await shot('13b-regles');
+
+  await page.goto('/tags/week-end-lyon');
+  await page.locator('.hero-figure').waitFor();
+  await shot('14-tag');
+
+  await goTo(page, 'Comptes');
+  await page.locator('#partages').getByRole('link', { name: /Coloc/ }).click();
+  await page.getByRole('heading', { level: 1, name: 'Coloc' }).waitFor();
+  await shot('15-partages');
+
+  // thème sombre choisi dans Réglages
+  await page.goto('/reglages');
+  await page.getByRole('radio', { name: 'Sombre' }).click();
+  await goTo(page, 'Aperçu');
+  await page.waitForTimeout(800);
+  await shot('16-apercu-sombre');
+  await page.goto('/reglages');
+  await page.getByRole('radio', { name: 'Système' }).click();
+
+  // compte neuf : parcours de premier lancement
+  await page.evaluate(() => localStorage.removeItem('pecule_token'));
+  await registerNew(page, 'Camille');
+  await page.getByText('Étape 1 sur 3').waitFor();
+  await shot('17-premier-lancement');
 });

@@ -1,27 +1,29 @@
 # Avancement
 
-## Résumé de fin de mission (2026-10-19, 2e feuille de route)
+## Résumé de fin de mission (2026-10-19, 3e feuille de route : tâches 0 à 16)
 
-**Ce qui marche** : les 10 tâches (0 à 9) sont faites. Nouveautés de cette version :
-- **Prévision** : « Tu peux dépenser X €/jour jusqu'au N », fin de mois estimée, détail du calcul. Les virements récurrents
-  ont été ajoutés pour l'épargne prévue.
-- **Abonnements** : page dédiée, détectés depuis les libellés bancaires, alerte de hausse de prix, « suivre comme récurrence ».
-- **Patrimoine net** : placements valorisés, crédits avec tableau d'amortissement, vue sur 24 mois. Placements et crédits
-  sont exclus des stats, des budgets et des prévisions.
+**Ce qui marche** : toutes les tâches 0 à 16 sont faites, aucune n'est bloquée.
+- **Socle** : serveur découpé (`src/routes/` un fichier par domaine, `lib.js`, modules de calcul purs), routes inchangées.
+- **Phase 2** : code-splitting (JS initial 90 kB gzip, vérifié à chaque build), « Annuler » après suppression, premier
+  lancement en 3 écrans, Réglages (thème, profil, mot de passe, export), raccourcis clavier, axe sans violation grave en
+  clair et en sombre ; règles de catégorisation et tags ; constats automatiques ; calendrier et vue annuelle ; récap
+  mensuel imprimable (≤ 2 pages A4) ; dépenses partagées ; fonctions IA facultatives (ticket en photo, assistant en
+  lecture seule), absentes sans `ANTHROPIC_API_KEY`.
 
-Dernière vérification : **76 tests API** (vitest), `tsc -b` et build OK, **32 tests Playwright** (1366×900, 390×844, PWA
-sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écran (27) dans `docs/screenshots/`.
+Dernière vérification : **131 tests API** (vitest), `tsc -b` et build OK, **67 tests Playwright** (1366×900, 390×844,
+PWA, axe, PDF), tous verts. Captures des écrans (45) dans `docs/screenshots/`. Les fonctions IA ont été testées avec un SDK
+simulé uniquement : aucun appel réel à l'API Claude n'a été fait (pas de clé sur la machine de dev).
 
-**Ce qui est bloqué** : rien dans le périmètre. Docker est hors périmètre (tâche 9) : le `Dockerfile` et le
-`docker-compose.yml` de la version précédente sont conservés mais **jamais construits** (Docker absent de la machine).
+**Ce qui est bloqué** : rien. Hors périmètre, comme demandé : Docker (le `Dockerfile` existant n'a jamais été construit),
+synchronisation bancaire, multi-devises, application native.
 
 **3 prochaines évolutions recommandées** :
-1. **Mensualités de crédit ventilées** : générer chaque échéance comme une opération récurrente, avec une part intérêts
-   (dépense) et une part capital (virement vers le compte de dette). Le budget et le patrimoine racontent alors la même histoire.
-2. **Découpage du bundle** (~700 Ko) : charger Recharts, la page Patrimoine et la modale d'import à la demande
-   (`React.lazy`). Le premier affichage sur mobile en profitera.
-3. **Sauvegarde / restauration** : export JSON complet (comptes, valorisations, crédits, règles, objectifs) et
-   sauvegarde planifiée de `money.db`. C'est indispensable avant d'y mettre de vraies données.
+1. **Essai réel des fonctions IA** avec une clé : régler l'effort et le prompt du ticket sur une dizaine de vraies photos,
+   et mesurer coût et délai par question de l'assistant avant de l'ouvrir à d'autres utilisateurs.
+2. **Sauvegarde / restauration** : export JSON complet (comptes, règles, tags, groupes, objectifs) et sauvegarde planifiée
+   de `money.db`, indispensable avant d'y mettre de vraies données.
+3. **Mensualités de crédit ventilées** : générer chaque échéance en part intérêts (dépense) + part capital (virement vers la
+   dette), pour que budget et patrimoine racontent la même histoire.
 
 ## Feuille de route
 
