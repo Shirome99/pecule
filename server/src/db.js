@@ -85,6 +85,20 @@ addColumn('transactions', 'recurring_id', 'INTEGER REFERENCES recurring(id) ON D
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tx_recurring ON transactions(recurring_id, date)
   WHERE recurring_id IS NOT NULL`);
 
+// objectifs d'épargne : progression = solde du compte lié, sinon total des versements manuels (saved)
+db.exec(`
+CREATE TABLE IF NOT EXISTS goals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  target_amount INTEGER NOT NULL,   -- centimes
+  target_date TEXT,                 -- YYYY-MM-DD, facultative
+  account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+  saved INTEGER NOT NULL DEFAULT 0, -- centimes, versements manuels
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
 const DEFAULT_CATEGORIES = [
   ['Logement', 'expense', '#6366f1', '🏠'],
   ['Courses', 'expense', '#10b981', '🛒'],

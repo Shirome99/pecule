@@ -69,3 +69,12 @@ seulement le format.
   servies, service worker actif qui contrôle la page et gère `fetch`). Lighthouse non utilisé (nouvelle dépendance lourde).
 - `npm run test:e2e` lance d'abord `vite build` : le projet `pwa` teste le vrai build servi par Express.
 **Écarté** : `@vite-pwa/assets-generator` (dépend de sharp, binaire natif) ; mise en cache des réponses API.
+
+## 2026-10-19 — Objectifs d'épargne
+**Choix** :
+- Versements manuels stockés comme un total (`goals.saved`) modifié par `POST /api/goals/:id/contributions` (montant signé,
+  jamais en dessous de 0). Un objectif lié à un compte refuse les versements manuels (sa progression = le solde du compte).
+- Mois restants = différence de mois calendaires entre aujourd'hui et la date cible (au moins 1 tant que la date n'est
+  pas passée). Montant mensuel = reste / mois restants, arrondi au centime supérieur. Date dépassée : on affiche le reste.
+- Supprimer le compte lié détache l'objectif (`ON DELETE SET NULL`), il repasse en versements manuels.
+**Écarté** : une table d'historique des versements (inutile pour le calcul demandé).

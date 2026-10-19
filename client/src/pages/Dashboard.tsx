@@ -1,23 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api, type Budget, type Stats, type Transaction } from '../api';
+import { api, type Budget, type Goal, type Stats, type Transaction } from '../api';
 import { useStore } from '../store';
 import { money, moneyRound, monthLabel, signed } from '../format';
 import MonthPicker from '../components/MonthPicker';
 import TxRow from '../components/TxRow';
 import BudgetBar from '../components/BudgetBar';
+import GoalCard from '../components/GoalCard';
 
 export default function Dashboard() {
   const { month, version, user } = useStore();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
 
   useEffect(() => {
     api.get<Stats>(`/stats?month=${month}`).then(setStats);
     api.get<Transaction[]>(`/transactions?month=${month}&limit=6`).then(setRecent);
     api.get<Budget[]>(`/budgets?month=${month}`).then(setBudgets);
+    api.get<Goal[]>('/goals').then(setGoals);
   }, [month, version]);
 
   if (!stats) return <div className="page"><p className="muted">Chargement…</p></div>;
@@ -110,6 +113,18 @@ export default function Dashboard() {
           )}
         </section>
       </div>
+
+      {goals.length > 0 && (
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Objectifs d'épargne</h2>
+            <Link to="/comptes#objectifs" className="link">Gérer</Link>
+          </div>
+          <div className="budget-list compact goals">
+            {goals.map((g) => <GoalCard key={g.id} g={g} />)}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-head">

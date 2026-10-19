@@ -57,6 +57,15 @@ db.transaction(() => {
   }
 })();
 
+// objectifs : l'un suit le Livret A, l'autre est alimenté à la main
+const inMonths = (n) => {
+  const d = new Date(today.getFullYear(), today.getMonth() + n, 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+};
+const goal = db.prepare('INSERT INTO goals (user_id, name, target_amount, target_date, account_id, saved) VALUES (?,?,?,?,?,?)');
+goal.run(uid, 'Apport appartement', 1500000, inMonths(24), livret, 0);
+goal.run(uid, "Vacances d'été", 150000, inMonths(8), null, 45000);
+
 const budget = db.prepare('INSERT INTO budgets (user_id, category_id, monthly_limit) VALUES (?,?,?)');
 budget.run(uid, cat['Courses'], 40000);
 budget.run(uid, cat['Restaurants'], 15000);

@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { api, type Account, type AccountType, type Recurring } from '../api';
+import { api, type Account, type AccountType, type Goal, type Recurring } from '../api';
 import { useStore } from '../store';
 import { ACCOUNT_TYPES, frequencyLabel, money, shortDate, signed } from '../format';
 import Modal from '../components/Modal';
+import GoalCard from '../components/GoalCard';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316', '#0ea5e9', '#6b7280'];
 
@@ -43,6 +44,8 @@ export default function Accounts() {
         <button className="btn ghost" onClick={() => setEditing('new')}>+ Ajouter un compte</button>
       </section>
 
+      <GoalsSection />
+
       <RecurringSection />
 
       <section className="panel">
@@ -68,6 +71,166 @@ export default function Accounts() {
       {editing && <AccountForm account={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
       {newCat && <CategoryForm onClose={() => setNewCat(false)} />}
     </div>
+  );
+}
+
+function GoalsSection() {
+  const { version } = useStore();
+  const [goals, setGoals] = useState<Goal[] | null>(null);
+  const [editing, setEditing] = useState<Goal | 'new' | null>(null);
+  const [contributing, setContributing] = useState<Goal | null>(null);
+
+  useEffect(() => {
+    api.get<Goal[]>('/goals').then(setGoals).catch(() => setGoals([]));
+  }, [version]);
+
+  // lien « Gérer » depuis l'Aperçu (/comptes#objectifs)
+  const loaded = goals !== null;
+  useEffect(() => {
+    if (loaded && window.location.hash === '#objectifs') document.getElementById('objectifs')?.scrollIntoView();
+  }, [loaded]);
+
+  return (
+    <section className="panel" id="objectifs">
+      <div className="panel-head">
+        <h2>Objectifs d'épargne</h2>
+        {goals && goals.length > 0 && <button className="link" onClick={() => setEditing('new')}>Ajouter</button>}
+      </div>
+      {goals === null ? <p className="muted">Chargement…</p> : goals.length === 0 ? (
+        <>
+          <p className="muted">Un voyage, un apport, un coussin de sécurité ? Fixe un montant et une date : Pécule te dit combien mettre de côté chaque mois.</p>
+          <button className="btn ghost" onClick={() => setEditing('new')}>+ Créer un objectif</button>
+        </>
+      ) : (
+        <div className="budget-list">
+          {goals.map((g) => (
+            <div key={g.id} className="goal-item">
+              <GoalCard g={g} onEdit={() => setEditing(g)} />
+              {!g.account_id && (
+                <button className="btn ghost goal-add" onClick={() => setContributing(g)}>+ Ajouter un versement</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {editing && <GoalForm goal={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
+      {contributing && <ContributionForm goal={contributing} onClose={() => setContributing(null)} />}
+    </section>
+  );
+}
+
+const parseNumber = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.'));
+
+function GoalForm({ goal, onClose }: { goal?: Goal; onClose: () => void }) {
+  const { accounts, refresh } = useStore();
+  const [name, setName] = useState(goal?.name ?? '');
+  const [target, setTarget] = useState(goal ? String(goal.target_amount).replace('.', ',') : '');
+  const [date, setDate] = useState(goal?.target_date ?? '');
+  const [accountId, setAccountId] = useState<number | ''>(goal?.account_id ?? '');
+  const [saved, setSaved] = useState(goal ? String(goal.saved).replace('.', ',') : '0');
+  const [error, setError] = useState('');
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const body = {
+      name, target_amount: parseNumber(target), target_date: date || null, account_id: accountId || null,
+      ...(accountId ? {} : { saved: parseNumber(saved) || 0 }),
+    };
+    try {
+      if (goal) await api.put(`/goals/${goal.id}`, body);
+      else await api.post('/goals', body);
+      refresh();
+      onClose();
+    } catch (err) { setError((err as Error).message); }
+  }
+
+  async function remove() {
+    if (!goal || !confirm(`Supprimer l'objectif ${goal.name} ? Ton argent ne bouge pas.`)) return;
+    await api.del(`/goals/${goal.id}`);
+    refresh();
+    onClose();
+  }
+
+  return (
+    <Modal title={goal ? 'Modifier l’objectif' : 'Nouvel objectif'} onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <label className="field"><span>Nom</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Vacances d'été" required />
+        </label>
+        <div className="row-2">
+          <label className="field"><span>Montant cible</span>
+            <div className="amount-input">
+              <input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="0" required />
+              <span>€</span>
+            </div>
+          </label>
+          <label className="field"><span>Date cible (facultatif)</span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+        </div>
+        <label className="field"><span>Progression</span>
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}>
+            <option value="">Je note mes versements à la main</option>
+            {accounts.map((a) => <option key={a.id} value={a.id}>Solde de {a.name}</option>)}
+          </select>
+        </label>
+        {!accountId && (
+          <label className="field"><span>Déjà mis de côté</span>
+            <div className="amount-input">
+              <input inputMode="decimal" value={saved} onChange={(e) => setSaved(e.target.value)} />
+              <span>€</span>
+            </div>
+          </label>
+        )}
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="form-actions">
+          {goal && <button type="button" className="btn ghost danger" onClick={remove}>Supprimer</button>}
+          <button className="btn primary">Enregistrer</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function ContributionForm({ goal, onClose }: { goal: Goal; onClose: () => void }) {
+  const { refresh } = useStore();
+  const [way, setWay] = useState<'in' | 'out'>('in');
+  const [amount, setAmount] = useState('');
+  const [error, setError] = useState('');
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const value = parseNumber(amount);
+    if (!value || value <= 0) return setError('Saisis un montant supérieur à 0.');
+    try {
+      await api.post(`/goals/${goal.id}/contributions`, { amount: way === 'in' ? value : -value });
+      refresh();
+      onClose();
+    } catch (err) { setError((err as Error).message); }
+  }
+
+  return (
+    <Modal title={goal.name} onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <div className="segmented" role="radiogroup" aria-label="Sens">
+          {(['in', 'out'] as const).map((w) => (
+            <button type="button" key={w} role="radio" aria-checked={way === w}
+              className={way === w ? `on ${w === 'in' ? 'income' : 'expense'}` : ''} onClick={() => setWay(w)}>
+              {w === 'in' ? 'Verser' : 'Retirer'}
+            </button>
+          ))}
+        </div>
+        <label className="field amount-field"><span>Montant</span>
+          <div className="amount-input">
+            <input inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+            <span>€</span>
+          </div>
+        </label>
+        <p className="muted small">Déjà mis de côté : {money(goal.saved)}</p>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="form-actions"><button className="btn primary">Valider</button></div>
+      </form>
+    </Modal>
   );
 }
 

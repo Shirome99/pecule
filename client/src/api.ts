@@ -75,3 +75,8 @@ export type Recurring = {
   paused: boolean; next_date: string | null;
   account_name: string; category_name: string | null; category_color: string | null; category_icon: string | null;
 };
+export type Goal = {
+  id: number; name: string; target_amount: number; target_date: string | null; account_id: number | null;
+  account_name: string | null; saved: number; progress: number; remaining: number; ratio: number;
+  reached: boolean; overdue: boolean; months_left: number | null; per_month: number | null;
+};

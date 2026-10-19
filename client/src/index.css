@@ -207,6 +207,15 @@ button.budget:hover { border-color: var(--ink-2); }
 .budget-left { font-size: 0.8rem; color: var(--ink-2); }
 .budget.over .budget-left { color: var(--out); font-weight: 600; }
 
+/* ---------- objectifs ---------- */
+.goal-item { display: flex; flex-direction: column; gap: 0.4rem; }
+.goal-item .goal { flex: 1; }
+.goal-add { align-self: stretch; min-height: 44px; font-size: 0.875rem; }
+.goal-advice { font-weight: 600; font-size: 0.9rem; }
+.goal.reached .goal-advice { color: var(--in); }
+.goal.over .goal-advice { color: var(--out); }
+.budget-list.compact.goals { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem 2rem; }
+
 /* ---------- catégories ---------- */
 .cat-group + .cat-group { margin-top: 0.5rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
