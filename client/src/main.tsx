@@ -20,6 +20,7 @@ const Networth = lazy(() => import('./pages/Networth'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Rules = lazy(() => import('./pages/Rules'));
 const TagPage = lazy(() => import('./pages/TagPage'));
+const Year = lazy(() => import('./pages/Year'));
 
 applyTheme();
 
@@ -39,6 +40,7 @@ function App() {
         <Route path="reglages" element={<Settings />} />
         <Route path="reglages/regles" element={<Rules />} />
         <Route path="tags/:name" element={<TagPage />} />
+        <Route path="annee" element={<Year />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

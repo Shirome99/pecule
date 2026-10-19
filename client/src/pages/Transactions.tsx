@@ -6,6 +6,10 @@ import { dayLabel, money } from '../format';
 import MonthPicker from '../components/MonthPicker';
 import TxRow from '../components/TxRow';
 import ImportModal from '../components/ImportModal';
+import CalendarView from '../components/CalendarView';
+
+const VIEW_KEY = 'pecule_tx_view';
+const savedView = () => { try { return localStorage.getItem(VIEW_KEY) === 'calendar' ? 'calendar' : 'list'; } catch { return 'list'; } };
 
 export default function Transactions() {
   const { month, setMonth, version, accounts, categories } = useStore();
@@ -17,6 +21,11 @@ export default function Transactions() {
   const [categoryId, setCategoryId] = useState(params.get('category') ?? '');
   const [importing, setImporting] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [view, setViewState] = useState<'list' | 'calendar'>(savedView);
+  const setView = (v: 'list' | 'calendar') => {
+    setViewState(v);
+    try { localStorage.setItem(VIEW_KEY, v); } catch { /* préférence non gardée */ }
+  };
   const tag = params.get('tag') ?? '';
   const setTag = (t: string) => setParams(t ? { tag: t } : {}, { replace: true });
   const linkedMonth = params.get('month');
@@ -79,13 +88,23 @@ export default function Transactions() {
         </span>
       </div>
 
+      <div className="segmented view-toggle" role="radiogroup" aria-label="Affichage">
+        {(['list', 'calendar'] as const).map((v) => (
+          <button type="button" key={v} role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+            {v === 'list' ? 'Liste' : 'Calendrier'}
+          </button>
+        ))}
+      </div>
+
       <p className="totals">
         <span>Entrées <strong className="in">{money(totalIn)}</strong></span>
         <span>Sorties <strong className="out">{money(totalOut)}</strong></span>
         {tag && <Link to={`/tags/${encodeURIComponent(tag)}`} className="link">Bilan de #{tag}, tous mois confondus</Link>}
       </p>
 
-      {txs === null ? <p className="muted">Chargement…</p> : groups.length === 0 ? (
+      {txs === null ? <p className="muted">Chargement…</p> : view === 'calendar' ? (
+        <CalendarView month={month} txs={txs} counted={counted} showAccount={accounts.length > 1} />
+      ) : groups.length === 0 ? (
         <div className="empty">
           <p>Aucune opération ne correspond.</p>
           <p className="muted small">Change de mois, retire un filtre ou ajoute une opération avec le bouton +.</p>

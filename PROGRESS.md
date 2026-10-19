@@ -93,7 +93,11 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   équivalente pour le mois en cours), dépense inhabituelle (> 3 × médiane de la catégorie sur 6 mois), budget en voie de
   dépassement (date estimée), bonne nouvelle ; rien sous 2 mois d'historique ; 3 max triés en euros. `GET /api/insights`,
   carte « À retenir » sur l'Aperçu, liens filtrés vers Opérations (`?month&category&q`). 15 tests API/unitaires + 1 e2e.
-- [ ] **Tâche 13 — Calendrier et vue annuelle**
+- [x] **Tâche 13 — Calendrier et vue annuelle**
+  Opérations : bascule Liste / Calendrier (choix gardé) ; grille du mois, intensité séquentielle tirée de `--out` (quartiles),
+  total par jour sur desktop, détail du jour en dessous (desktop) ou en panneau bas (mobile). Module pur `src/yearly.js` +
+  `GET /api/stats/year` ; page « Vue annuelle » (depuis l'Aperçu) : 4 chiffres clés, tableau catégories × mois à colonne
+  fixe, top 5. Test : totaux annuels = somme des 12 `/api/stats` (y compris par catégorie). 3 tests API + 2 e2e.
 - [ ] **Tâche 14 — Récap mensuel imprimable**
 - [ ] **Tâche 15 — Dépenses partagées**
 - [ ] **Tâche 16 — Fonctions IA (facultatives, avec l'API Claude)**

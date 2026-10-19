@@ -94,6 +94,7 @@ export default function Dashboard() {
         <section className="panel">
           <div className="panel-head">
             <h2>Six derniers mois</h2>
+            <Link to="/annee" className="link">Vue annuelle</Link>
           </div>
           <div style={{ height: 220 }}>
             {/* Recharts n'est téléchargé qu'ici, après le premier affichage de l'Aperçu */}

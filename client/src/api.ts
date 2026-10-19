@@ -100,6 +100,12 @@ export type Insight = {
   type: 'category_up' | 'category_down' | 'unusual' | 'budget_pace' | 'good_news';
   amount: number; text: string; link: { month: string; category_id?: number; q?: string };
 };
+export type YearStats = {
+  year: number; income: number; expenses: number; savings: number; savings_rate: number | null;
+  months: { month: string; income: number; expenses: number }[];
+  categories: { id: number | null; name: string; color: string; icon: string; months: number[]; total: number }[];
+  top: { id: number; date: string; label: string; amount: number; category_name: string | null; category_icon: string | null }[];
+};
 export type Tag = { name: string; count: number; last_date: string };
 export type TagSummary = {
   name: string; count: number; total: number; income: number; from: string; to: string;

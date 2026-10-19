@@ -4,7 +4,8 @@ const { db } = require('../db');
 const { wrap, fromCents, auth } = require('../lib');
 const { generateRecurring, upcomingInMonth } = require('../recurring');
 const { FAMILIES, sqlList } = require('../accounts');
-const { lastMonths } = require('../dates');
+const { lastMonths, localToday } = require('../dates');
+const { yearSummary } = require('../yearly');
 
 // seules les liquidités entrent dans les revenus, dépenses et le « Solde total »
 const liquidTypes = sqlList(FAMILIES.liquid);
@@ -58,6 +59,26 @@ router.get('/api/stats', auth, wrap((req, res) => {
     trend,
     upcoming: fromCents(upcoming.total),
     upcoming_count: upcoming.count,
+  });
+}));
+
+// ---------- vue annuelle ----------
+router.get('/api/stats/year', auth, wrap((req, res) => {
+  const year = Number(req.query.year || localToday().slice(0, 4));
+  if (!Number.isInteger(year) || year < 1970 || year > 2200) return res.status(400).json({ error: 'Année invalide (ex. 2026)' });
+  generateRecurring(req.userId);
+  const rows = db.prepare(`
+    SELECT t.id, t.date, t.amount, t.label, t.category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
+    FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
+    WHERE t.user_id = ? AND substr(t.date,1,4) = ? AND t.transfer_id IS NULL
+      AND t.account_id IN (SELECT id FROM accounts WHERE type IN ${liquidTypes})`).all(req.userId, String(year));
+  const y = yearSummary(rows, year);
+  res.json({
+    ...y,
+    income: fromCents(y.income), expenses: fromCents(y.expenses), savings: fromCents(y.savings),
+    months: y.months.map((m) => ({ ...m, income: fromCents(m.income), expenses: fromCents(m.expenses) })),
+    categories: y.categories.map((c) => ({ ...c, months: c.months.map(fromCents), total: fromCents(c.total) })),
+    top: y.top.map((t) => ({ ...t, amount: fromCents(t.amount) })),
   });
 }));
 

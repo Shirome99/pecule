@@ -5,7 +5,7 @@ import { loginDemo } from './helpers';
 const PAGES = [
   ['Aperçu', '/'], ['Opérations', '/transactions'], ['Budgets', '/budgets'], ['Comptes', '/comptes'],
   ['Abonnements', '/abonnements'], ['Patrimoine', '/patrimoine'], ['Réglages', '/reglages'],
-  ['Règles', '/reglages/regles'], ['Tag', '/tags/week-end-lyon'],
+  ['Règles', '/reglages/regles'], ['Tag', '/tags/week-end-lyon'], ['Vue annuelle', '/annee'],
 ] as const;
 
 for (const theme of ['light', 'dark'] as const) {
@@ -22,6 +22,13 @@ for (const theme of ['light', 'dark'] as const) {
       for (const v of violations.filter((x) => x.impact === 'serious' || x.impact === 'critical'))
         problems.push(`${name} · ${v.id} (${v.impact}) : ${v.nodes.slice(0, 4).map((n) => n.target.join(' ')).join(' | ')}`);
     }
+    // vue calendrier des opérations
+    await page.goto('/transactions');
+    await page.getByRole('radio', { name: 'Calendrier' }).click();
+    await expect(page.getByRole('grid')).toBeVisible();
+    for (const v of (await new AxeBuilder({ page }).analyze()).violations.filter((x) => x.impact === 'serious' || x.impact === 'critical'))
+      problems.push(`Calendrier · ${v.id} (${v.impact}) : ${v.nodes.slice(0, 4).map((n) => n.target.join(' ')).join(' | ')}`);
+    await page.getByRole('radio', { name: 'Liste' }).click();
     expect(problems).toEqual([]);
   });
 }

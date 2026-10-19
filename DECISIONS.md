@@ -205,3 +205,15 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
   (`month`, `category_id`, `q`) et le client en fait une URL de filtre.
 - Tests e2e : `goTo` attend le titre de la nouvelle page, car avec `React.lazy` l'ancienne reste affichée pendant le
   chargement (un test cliquait la même opération dans les « Dernières opérations » de l'Aperçu).
+
+## 2026-10-19 — Calendrier et vue annuelle (tâche 13)
+**Choix** :
+- Le calendrier réutilise la liste déjà chargée (`/api/transactions?month`) et ses filtres : pas de nouvelle route.
+- Intensité : 4 niveaux par **quartiles** des jours avec dépense (et pas proportionnels au maximum : le jour du loyer
+  écrasait tous les autres au niveau 1). Couleur = `--out` mélangé à `--surface` (12 → 54 %) : une seule teinte, claire →
+  foncée en clair, et qui s'allume sur fond sombre en sombre. Légende « Moins → Plus » ; chiffres exacts dans le nom
+  accessible et l'infobulle de chaque jour ; le détail du jour sert de vue tableau.
+- Vue annuelle : mêmes filtres que `/api/stats` (liquidités, virements exclus), donc des totaux identiques à la somme des
+  mois. Taux d'épargne = (revenus − dépenses) / revenus, `null` sans revenu. Lien « Vue annuelle » dans le panneau
+  « Six derniers mois » de l'Aperçu. Pas d'année future.
+**Écarté** : un graphique Recharts de plus sur la vue annuelle (le tableau répond déjà à la question, et garde la page légère).
