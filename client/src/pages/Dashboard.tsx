@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api, type Budget, type Goal, type Stats, type Transaction } from '../api';
+import { api, type Budget, type Forecast, type Goal, type Stats, type Transaction } from '../api';
 import { useStore } from '../store';
-import { money, moneyRound, monthLabel, signed } from '../format';
+import { currentMonth, money, moneyRound, monthLabel, signed } from '../format';
 import MonthPicker from '../components/MonthPicker';
 import TxRow from '../components/TxRow';
 import BudgetBar from '../components/BudgetBar';
 import GoalCard from '../components/GoalCard';
+import ForecastLine from '../components/ForecastLine';
 
 export default function Dashboard() {
   const { month, version, user } = useStore();
@@ -15,12 +16,16 @@ export default function Dashboard() {
   const [recent, setRecent] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [forecast, setForecast] = useState<Forecast | null>(null);
 
   useEffect(() => {
     api.get<Stats>(`/stats?month=${month}`).then(setStats);
     api.get<Transaction[]>(`/transactions?month=${month}&limit=6`).then(setRecent);
     api.get<Budget[]>(`/budgets?month=${month}`).then(setBudgets);
     api.get<Goal[]>('/goals').then(setGoals);
+    // prévision : mois en cours uniquement
+    if (month === currentMonth()) api.get<Forecast>(`/forecast?month=${month}`).then(setForecast).catch(() => setForecast(null));
+    else setForecast(null);
   }, [month, version]);
 
   if (!stats) return <div className="page"><p className="muted">Chargement…</p></div>;
@@ -40,6 +45,7 @@ export default function Dashboard() {
       <section className="hero" aria-label="Résumé du mois">
         <p className="hero-label">{remaining >= 0 ? 'Reste ce mois-ci' : 'Dépassement ce mois-ci'}</p>
         <p className={`hero-figure ${remaining < 0 ? 'neg' : ''}`}>{money(Math.abs(remaining))}</p>
+        {forecast && !forecast.is_past && <ForecastLine f={forecast} />}
 
         {empty ? (
           <p className="hero-empty">Aucune opération en {monthLabel(month).toLowerCase()}. Ajoute ton salaire et tes premières dépenses pour voir ton mois prendre forme.</p>

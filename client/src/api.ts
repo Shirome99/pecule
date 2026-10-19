@@ -73,10 +73,19 @@ export type Recurring = {
   id: number; account_id: number; category_id: number | null; amount: number; label: string;
   frequency: Frequency; day: number; start_date: string; end_date: string | null; last_generated: string | null;
   paused: boolean; next_date: string | null;
+  /** virement récurrent : compte d'arrivée */
+  to_account_id: number | null; to_account_name: string | null;
   account_name: string; category_name: string | null; category_color: string | null; category_icon: string | null;
 };
 export type Goal = {
   id: number; name: string; target_amount: number; target_date: string | null; account_id: number | null;
   account_name: string | null; saved: number; progress: number; remaining: number; ratio: number;
   reached: boolean; overdue: boolean; months_left: number | null; per_month: number | null;
+};
+export type Forecast = {
+  month: string; is_past: boolean; income: number; expenses: number; net?: number;
+  today: string; last_day: string; days_in_month: number; days_remaining: number;
+  upcoming_income: number; upcoming_expenses: number; upcoming_savings_out: number; planned_savings: number;
+  variable_daily_rate: number; rate_basis: 'history' | 'current_month'; history_months: number;
+  spendable_balance: number; projected_end_balance: number; safe_to_spend: number; safe_per_day: number; overspend: number;
 };

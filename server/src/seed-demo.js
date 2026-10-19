@@ -20,7 +20,6 @@ const cat = Object.fromEntries(
   db.prepare('SELECT id, name FROM categories WHERE user_id = ?').all(uid).map((c) => [c.name, c.id])
 );
 const ins = db.prepare('INSERT INTO transactions (user_id, account_id, category_id, amount, label, date) VALUES (?,?,?,?,?,?)');
-const insTransfer = db.prepare('INSERT INTO transactions (user_id, account_id, amount, label, date, transfer_id) VALUES (?,?,?,?,?,?)');
 const rnd = (a, b) => Math.round(a + Math.random() * (b - a));
 
 const today = new Date();
@@ -37,6 +36,9 @@ rec.run(uid, acc, cat['Logement'], -115000, 'Loyer', 3, startDate);
 rec.run(uid, acc, cat['Abonnements'], -1399, 'Netflix', 5, startDate);
 rec.run(uid, acc, cat['Abonnements'], -1999, 'Forfait mobile', 8, startDate);
 rec.run(uid, acc, cat['Abonnements'], -3500, 'Salle de sport', 25, startDate);
+// virement mensuel de 300 € vers le Livret A
+db.prepare(`INSERT INTO recurring (user_id, account_id, to_account_id, amount, label, frequency, day, start_date)
+  VALUES (?,?,?,?,?,'monthly',?,?)`).run(uid, acc, livret, -30000, 'Épargne du mois', 2, startDate);
 generateRecurring(uid);
 
 db.transaction(() => {
@@ -46,9 +48,6 @@ db.transaction(() => {
     const lastDay = i === 0 ? today.getDate() : new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
     const d = (day) => `${ym}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 
-    const tid = crypto.randomUUID(); // virement mensuel vers l'épargne
-    insTransfer.run(uid, acc, -30000, 'Épargne du mois', d(2), tid);
-    insTransfer.run(uid, livret, 30000, 'Épargne du mois', d(2), tid);
     for (let k = 0; k < 6; k++) ins.run(uid, acc, cat['Courses'], -rnd(2500, 9500), ['Carrefour', 'Monoprix', 'Franprix', 'Lidl'][k % 4], d(rnd(1, 28)));
     for (let k = 0; k < rnd(3, 6); k++) ins.run(uid, acc, cat['Restaurants'], -rnd(1200, 5500), ['Brasserie', 'Sushi', 'Burger', 'Pizzeria', 'Café'][k % 5], d(rnd(1, 28)));
     for (let k = 0; k < rnd(1, 3); k++) ins.run(uid, acc, cat['Loisirs'], -rnd(1000, 6000), ['Cinéma', 'Concert', 'Bowling', 'Livres'][k % 4], d(rnd(1, 28)));

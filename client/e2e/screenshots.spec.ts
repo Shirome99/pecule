@@ -17,6 +17,9 @@ test('captures de tous les écrans', async ({ page }) => {
   await loginDemo(page);
   await page.waitForTimeout(800); // animations du graphique
   await shot('02-apercu');
+  await page.getByRole('button', { name: "Comment c'est calculé ?" }).click();
+  await modalShot('02b-prevision');
+  await page.getByRole('button', { name: 'Fermer' }).click();
 
   await page.getByRole('button', { name: /Nouvelle opération/ }).click();
   await modalShot('03-nouvelle-operation');

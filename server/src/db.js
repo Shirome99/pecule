@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS recurring (
 );
 `);
 addColumn('transactions', 'recurring_id', 'INTEGER REFERENCES recurring(id) ON DELETE SET NULL');
+// virement récurrent : account_id = compte de départ, to_account_id = compte d'arrivée (amount négatif)
+addColumn('recurring', 'to_account_id', 'INTEGER REFERENCES accounts(id) ON DELETE CASCADE');
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tx_recurring ON transactions(recurring_id, date)
   WHERE recurring_id IS NOT NULL`);
 

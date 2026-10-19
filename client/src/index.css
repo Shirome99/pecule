@@ -163,6 +163,23 @@ button, input, select { font: inherit; color: inherit; }
 .day-head { display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 600; padding-bottom: 0.4rem; border-bottom: 1px solid var(--line); margin-bottom: 0.25rem; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); padding: 2rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
 
+/* ---------- prévision ---------- */
+.forecast { display: flex; flex-direction: column; gap: 0.2rem; }
+.forecast-main { font-size: 1.05rem; }
+.forecast-main strong { color: var(--in); }
+.forecast-main.over, .forecast-main.over strong { color: var(--out); }
+.forecast-sub { color: var(--ink-2); font-size: 0.95rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
+.forecast-sub strong { color: var(--ink); }
+.forecast-sub strong.out { color: var(--out); }
+.forecast-sub .link { font-size: 0.875rem; color: var(--ink-2); min-height: 44px; }
+.calc { margin: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.calc-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0.8rem; }
+.calc-row + .calc-row { border-top: 1px solid var(--line); }
+.calc-row dt { min-width: 0; }
+.calc-row dd { margin: 0; white-space: nowrap; font-weight: 500; }
+.calc-row.total { font-weight: 600; background: var(--wash); }
+.calc-row.total dd { font-weight: 700; }
+
 /* ---------- récurrences ---------- */
 .hero-upcoming { color: var(--ink-2); font-size: 0.95rem; border-top: 1px solid var(--line); padding-top: 0.75rem; }
 .hero-upcoming strong { color: var(--ink); }

@@ -262,17 +262,21 @@ function RecurringSection() {
         <ul className="rec-list">
           {items.map((r) => (
             <li key={r.id} className={`rec-row ${r.paused ? 'paused' : ''}`}>
-              <span className="tx-icon" style={{ background: `${r.category_color ?? '#9ca3af'}22`, color: r.category_color ?? '#6b7280' }} aria-hidden>
-                {r.category_icon ?? '•'}
-              </span>
+              {r.to_account_id ? <span className="tx-icon transfer" aria-hidden>⇄</span> : (
+                <span className="tx-icon" style={{ background: `${r.category_color ?? '#9ca3af'}22`, color: r.category_color ?? '#6b7280' }} aria-hidden>
+                  {r.category_icon ?? '•'}
+                </span>
+              )}
               <span className="tx-main">
                 <span className="tx-label">{r.label}</span>
                 <span className="tx-meta">
-                  {frequencyLabel(r.frequency, r.day, r.start_date)} · {r.account_name}
+                  {frequencyLabel(r.frequency, r.day, r.start_date)} · {r.to_account_id ? `${r.account_name} → ${r.to_account_name}` : r.account_name}
                   {r.paused ? ' · En pause' : r.next_date && ` · prochaine le ${shortDate(r.next_date)}`}
                 </span>
               </span>
-              <span className={`tx-amount ${r.amount > 0 ? 'in' : ''}`}>{signed(r.amount)}</span>
+              {r.to_account_id
+                ? <span className="tx-amount transfer">{money(Math.abs(r.amount))}</span>
+                : <span className={`tx-amount ${r.amount > 0 ? 'in' : ''}`}>{signed(r.amount)}</span>}
               <span className="rec-actions">
                 <button className="btn ghost" onClick={() => togglePause(r)}>{r.paused ? 'Reprendre' : 'Mettre en pause'}</button>
                 <button className="btn ghost danger" onClick={() => remove(r)} aria-label={`Supprimer ${r.label}`}>Supprimer</button>

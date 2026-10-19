@@ -8,6 +8,9 @@ const { z } = require('zod');
 const { db, seedUser } = require('./db');
 const { generateRecurring, upcomingInMonth, nextOccurrence, localToday } = require('./recurring');
 const { goalPlan } = require('./goals');
+const { forecast } = require('./forecast');
+const { addMonths } = require('./dates');
+const { FAMILIES, SPENDABLE, SAVINGS, sqlList } = require('./accounts');
 const { configErrors, rateLimit, corsOptions, DEFAULT_JWT_SECRET } = require('./security');
 
 // en production, on refuse de démarrer avec une configuration dangereuse
@@ -363,7 +366,8 @@ const recurringSchema = z.object({
   account_id: z.coerce.number().int(),
   category_id: z.coerce.number().int().nullable().optional(),
   amount: z.coerce.number().positive('Le montant doit être positif'),
-  type: z.enum(['expense', 'income']),
+  type: z.enum(['expense', 'income', 'transfer']),
+  to_account_id: z.coerce.number().int().nullable().optional(),
   label: z.string().trim().min(1, 'Libellé requis'),
   frequency: z.enum(['monthly', 'weekly', 'yearly'], { error: 'Fréquence : monthly, weekly ou yearly' }).default('monthly'),
   day: z.coerce.number().int().min(1).max(31).optional(),
@@ -375,8 +379,10 @@ const recurringOut = (r) => ({ ...r, amount: fromCents(r.amount), paused: !!r.pa
 
 app.get('/api/recurring', auth, wrap((req, res) => {
   const rows = db.prepare(`
-    SELECT r.*, a.name AS account_name, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
-    FROM recurring r JOIN accounts a ON a.id = r.account_id LEFT JOIN categories c ON c.id = r.category_id
+    SELECT r.*, a.name AS account_name, ta.name AS to_account_name,
+      c.name AS category_name, c.color AS category_color, c.icon AS category_icon
+    FROM recurring r JOIN accounts a ON a.id = r.account_id LEFT JOIN accounts ta ON ta.id = r.to_account_id
+    LEFT JOIN categories c ON c.id = r.category_id
     WHERE r.user_id = ? ORDER BY r.paused, r.label`).all(req.userId);
   res.json(rows.map(recurringOut));
 }));
@@ -390,10 +396,17 @@ app.post('/api/recurring', auth, wrap((req, res) => {
   // par défaut : le jour de la date de début (jour du mois, ou jour de la semaine en hebdomadaire)
   const day = r.day ?? (r.frequency === 'weekly' ? start.getUTCDay() || 7 : start.getUTCDate());
   if (r.frequency === 'weekly' && day > 7) return res.status(400).json({ error: 'Jour de la semaine : de 1 (lundi) à 7 (dimanche)' });
-  const cents = toCents(r.amount) * (r.type === 'expense' ? -1 : 1);
+  const transfer = r.type === 'transfer';
+  if (transfer) {
+    if (!r.to_account_id) return res.status(400).json({ error: "Choisis le compte d'arrivée" });
+    if (r.to_account_id === r.account_id) return res.status(400).json({ error: 'Choisis deux comptes différents' });
+    if (!owns('accounts', r.to_account_id, req.userId)) return res.status(400).json({ error: 'Compte invalide' });
+  }
+  const cents = toCents(r.amount) * (r.type === 'income' ? 1 : -1);
   const { lastInsertRowid: id } = db.prepare(`INSERT INTO recurring
-    (user_id, account_id, category_id, amount, label, frequency, day, start_date, end_date) VALUES (?,?,?,?,?,?,?,?,?)`)
-    .run(req.userId, r.account_id, r.category_id || null, cents, r.label, r.frequency, day, r.start_date, r.end_date || null);
+    (user_id, account_id, to_account_id, category_id, amount, label, frequency, day, start_date, end_date) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run(req.userId, r.account_id, transfer ? r.to_account_id : null, transfer ? null : r.category_id || null, cents,
+      r.label, r.frequency, day, r.start_date, r.end_date || null);
   const generated = generateRecurring(req.userId);
   res.status(201).json({ id, generated });
 }));
@@ -413,6 +426,44 @@ app.delete('/api/recurring/:id', auth, wrap((req, res) => {
   // les opérations déjà générées restent (recurring_id passe à NULL)
   db.prepare('DELETE FROM recurring WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
+}));
+
+// ---------- prévision de fin de mois ----------
+app.get('/api/forecast', auth, wrap((req, res) => {
+  const uid = req.userId;
+  const now = localToday();
+  const month = req.query.month || now.slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Mois invalide (attendu AAAA-MM)' });
+  if (month > now.slice(0, 7)) return res.status(400).json({ error: 'La prévision ne porte que sur le mois en cours' });
+  generateRecurring(uid);
+
+  const liquid = sqlList(FAMILIES.liquid);
+  const from = addMonths(`${month}-01`, -3);
+  const transactions = db.prepare(`
+    SELECT t.date, t.amount, t.transfer_id, t.recurring_id FROM transactions t JOIN accounts a ON a.id = t.account_id
+    WHERE t.user_id = ? AND a.type IN ${liquid} AND t.date >= ? AND substr(t.date,1,7) <= ?`).all(uid, from, month);
+  const firstDate = db.prepare(`SELECT MIN(t.date) d FROM transactions t JOIN accounts a ON a.id = t.account_id
+    WHERE t.user_id = ? AND a.type IN ${liquid}`).get(uid).d;
+  const rules = db.prepare(`
+    SELECT r.*, a.type AS from_type, ta.type AS to_type FROM recurring r
+    JOIN accounts a ON a.id = r.account_id LEFT JOIN accounts ta ON ta.id = r.to_account_id
+    WHERE r.user_id = ? AND r.paused = 0`).all(uid)
+    // une récurrence (hors virement) sur un placement ou une dette ne compte pas dans le budget
+    .filter((r) => r.to_account_id || FAMILIES.liquid.includes(r.from_type))
+    .map((r) => ({
+      ...r,
+      from_spendable: SPENDABLE.includes(r.from_type),
+      to_spendable: SPENDABLE.includes(r.to_type),
+      to_savings: SAVINGS.includes(r.to_type),
+    }));
+  const spendableBalance = db.prepare(`
+    SELECT COALESCE(SUM(a.initial_balance + (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE account_id = a.id)), 0) AS b
+    FROM accounts a WHERE a.user_id = ? AND a.type IN ${sqlList(SPENDABLE)}`).get(uid).b;
+
+  const f = forecast({ now, month, transactions, firstDate, rules, spendableBalance });
+  const euros = Object.fromEntries(Object.entries(f).map(([k, v]) =>
+    [k, typeof v === 'number' && !['days_in_month', 'days_remaining', 'history_months'].includes(k) ? fromCents(v) : v]));
+  res.json(euros);
 }));
 
 // ---------- objectifs d'épargne ----------

@@ -36,6 +36,9 @@ export default function TransactionForm({ tx, onClose }: Props) {
       if (type === 'transfer') {
         const body = { from_account_id: fromId, to_account_id: toId, amount: value, label, date };
         if (tx?.transfer_id) await api.put(`/transfers/${tx.transfer_id}`, body);
+        else if (repeat) await api.post('/recurring', {
+          type, account_id: fromId, to_account_id: toId, amount: value, label: label || 'Virement', frequency: 'monthly', start_date: date,
+        });
         else await api.post('/transfers', body);
       } else {
         const body = { type, amount: value, label, date, account_id: accountId, category_id: categoryId || null };
@@ -147,14 +150,14 @@ export default function TransactionForm({ tx, onClose }: Props) {
                 </select>
               </label>
             </div>
-
-            {!tx && (
-              <label className="check">
-                <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
-                <span>Répéter chaque mois{repeat && date && ` (le ${Number(date.slice(8))})`}</span>
-              </label>
-            )}
           </>
+        )}
+
+        {!tx && !(type === 'transfer' && accounts.length < 2) && (
+          <label className="check">
+            <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+            <span>Répéter chaque mois{repeat && date && ` (le ${Number(date.slice(8))})`}</span>
+          </label>
         )}
 
         {error && <p className="form-error" role="alert">{error}</p>}

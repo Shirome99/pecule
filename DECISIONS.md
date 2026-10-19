@@ -90,3 +90,23 @@ seulement le format.
 - Image `node:24-alpine`, utilisateur `node`, base dans le volume `/data`, `HEALTHCHECK` sur `/api/health`.
 - Docker indisponible sur la machine de dev : l'image n'a pas été construite ; vérification par simulation locale (voir PROGRESS).
 **Écarté** : `express-rate-limit` (dépendance pour quelques lignes) ; Redis (une seule instance).
+
+## 2026-10-19 — Nouvelle feuille de route
+**Contexte** : la feuille de route insère trois tâches (3 prévision, 4 abonnements, 5 patrimoine) ; import, PWA,
+objectifs et sécurité deviennent les tâches 6 à 9 (déjà faites). La tâche 9 exclut Docker.
+**Choix** : ne refaire que les tâches nouvelles. Garder `Dockerfile` / `docker-compose.yml` (ils ne gênent rien, ne
+sont plus annoncés comme vérifiés) plutôt que supprimer des fichiers qui fonctionnent.
+
+## 2026-10-19 — Prévision de fin de mois
+**Choix** :
+- Virements récurrents ajoutés aux récurrences (`to_account_id`) : sans eux, « l'épargne prévue » serait toujours nulle.
+  La ligne de sortie porte `recurring_id` (pour l'unicité), les deux lignes partagent un `transfer_id` déterministe.
+- `planned_savings` = toutes les occurrences **du mois** des virements récurrents vers un compte épargne ou un placement
+  (passées comme à venir) : un virement déjà fait n'est pas une dépense, il faut donc aussi le retirer du reste à dépenser.
+- La fin de mois estimée retire aussi les virements récurrents **à venir** qui quittent les comptes du quotidien (terme
+  `upcoming_savings_out`, nul s'il n'y en a pas) : sinon l'estimation serait trop optimiste du montant de l'épargne.
+- « Historique » : un mois passé ne compte que si la première opération de l'utilisateur est antérieure au 1er de ce mois
+  (un mois commencé en cours de route sous-estimerait le rythme). Jours restants = aujourd'hui inclus, pour les deux calculs.
+- Seuls les comptes liquides entrent dans les revenus/dépenses ; le solde de départ de la projection = courant + espèces + carte.
+- Mois futur : 400. Le reste par jour est arrondi au centime inférieur (prudent).
+**Écarté** : moyenne au lieu de la médiane (sensible à un mois exceptionnel).
