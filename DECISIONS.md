@@ -78,3 +78,15 @@ seulement le format.
   pas passée). Montant mensuel = reste / mois restants, arrondi au centime supérieur. Date dépassée : on affiche le reste.
 - Supprimer le compte lié détache l'objectif (`ON DELETE SET NULL`), il repasse en versements manuels.
 **Écarté** : une table d'historique des versements (inutile pour le calcul demandé).
+
+## 2026-10-19 — Production
+**Choix** :
+- Limitation de débit écrite à la main (`server/src/security.js`, ~20 lignes, fenêtre fixe en mémoire par IP) : suffisant
+  pour une instance unique. Elle compte toutes les requêtes `/api/auth/*`. Réglable via `AUTH_RATE_LIMIT` (les tests la relèvent).
+- `JWT_SECRET` refusé en production s'il est absent, égal à la valeur par défaut, ou de moins de 32 caractères.
+- CORS en production : fermé par défaut (le front est servi par le même serveur), ouvert à `CORS_ORIGIN` si défini.
+- CSP helmet : Google Fonts autorisé ; `upgrade-insecure-requests` désactivé (le HTTPS est l'affaire du reverse proxy,
+  et la directive casserait un accès en HTTP simple sur le réseau local).
+- Image `node:24-alpine`, utilisateur `node`, base dans le volume `/data`, `HEALTHCHECK` sur `/api/health`.
+- Docker indisponible sur la machine de dev : l'image n'a pas été construite ; vérification par simulation locale (voir PROGRESS).
+**Écarté** : `express-rate-limit` (dépendance pour quelques lignes) ; Redis (une seule instance).

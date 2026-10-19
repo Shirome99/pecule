@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -7,13 +8,38 @@ const { z } = require('zod');
 const { db, seedUser } = require('./db');
 const { generateRecurring, upcomingInMonth, nextOccurrence, localToday } = require('./recurring');
 const { goalPlan } = require('./goals');
+const { configErrors, rateLimit, corsOptions, DEFAULT_JWT_SECRET } = require('./security');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+// en production, on refuse de démarrer avec une configuration dangereuse
+const problems = configErrors(process.env);
+if (problems.length) {
+  for (const p of problems) console.error(`Configuration invalide : ${p}`);
+  process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 const PORT = process.env.PORT || 4000;
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+// derrière un reverse proxy (nginx, Traefik…), TRUST_PROXY=1 pour lire la vraie IP du client
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      'font-src': ["'self'", 'https://fonts.gstatic.com'],
+      'connect-src': ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+      'upgrade-insecure-requests': null, // le HTTPS est géré par le reverse proxy
+    },
+  },
+}));
+app.use(cors(corsOptions(process.env)));
+app.use(express.json({ limit: '2mb' })); // import CSV : jusqu'à 2000 lignes
+app.use('/api/auth', rateLimit({
+  windowMs: 60_000,
+  max: Number(process.env.AUTH_RATE_LIMIT) || 5,
+  message: 'Trop de tentatives : réessaie dans une minute.',
+}));
 
 // ---------- helpers ----------
 const wrap = (fn) => (req, res) => {

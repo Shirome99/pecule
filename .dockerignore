@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/dev-dist
+**/*.db
+**/*.db-*
+**/test-results
+**/playwright-report
+.git
+.env
+docs

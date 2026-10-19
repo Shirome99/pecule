@@ -20,8 +20,7 @@ test('le manifest et les icônes rendent l’app installable', async ({ page, re
 
   // critères d'installation de Chrome : service worker actif, qui contrôle la page et gère les requêtes (fetch)
   // (Page.getInstallabilityErrors de CDP ne remonte rien en headless : on vérifie les critères un par un)
-  const state = await page.evaluate(async () => (await navigator.serviceWorker.ready).active?.state);
-  expect(state).toBe('activated');
+  await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.ready).active?.state)).toBe('activated');
   await page.reload();
   expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   const sw = await (await request.get('/sw.js')).text();

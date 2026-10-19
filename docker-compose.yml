@@ -1,0 +1,16 @@
+services:
+  pecule:
+    build: .
+    image: pecule:latest
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?Définis JWT_SECRET dans le fichier .env (voir .env.example)}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+    volumes:
+      - pecule-data:/data   # base SQLite persistante
+    restart: unless-stopped
+
+volumes:
+  pecule-data:

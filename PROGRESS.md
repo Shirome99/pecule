@@ -27,4 +27,10 @@
   Table `goals` ; progression = solde du compte lié, sinon `saved` (versements manuels via `POST /api/goals/:id/contributions`).
   Calcul du montant mensuel (`src/goals.js`, arrondi au centime supérieur, cas atteint / dépassé / sans date). CRUD `/api/goals`.
   UI : section « Objectifs d'épargne » dans Comptes, panneau sur l'Aperçu (barre + « X € par mois pour y arriver à temps »). Seed : 2 objectifs. 7 tests API/unitaires + 1 e2e.
-- [ ] Tâche 6 — Prêt pour la production
+- [x] **Tâche 6 — Prêt pour la production** (⚠️ `docker compose up` non exécuté : Docker absent de la machine)
+  Le serveur refuse de démarrer en production sans `JWT_SECRET` fort ; `helmet` + CSP ; limitation 5 essais/min/IP sur
+  `/api/auth/*` (sans dépendance) ; CORS limité à `CORS_ORIGIN` en prod. `Dockerfile` multi-étapes, `docker-compose.yml`
+  (volume SQLite), `.env.example`, README réécrit. 6 tests (dont démarrage réel du processus).
+  **Blocage** : `docker: command not found` — l'image n'a pas pu être construite. Vérifié à la place : layout de l'image
+  simulé localement (`NODE_ENV=production`, un seul port : front, routes SPA, manifest, SW, API, CSP, CORS fermé) et
+  présence des binaires Linux musl (better-sqlite3, rolldown, lightningcss) pour `node:24-alpine`.

@@ -20,7 +20,7 @@ export default defineConfig({
     {
       command: 'npm run seed && npm start',
       cwd: '../server',
-      env: { PORT: String(API_PORT), DB_PATH: 'e2e.db' },
+      env: { PORT: String(API_PORT), DB_PATH: 'e2e.db', AUTH_RATE_LIMIT: '1000' },
       url: `http://localhost:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

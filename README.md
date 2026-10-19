@@ -1,19 +1,21 @@
 # Pécule — gestion de budget perso
 
-App web de money management : comptes, opérations, catégories, budgets mensuels, tableau de bord.
-Interface déjà responsive (sidebar sur desktop, barre d'onglets + bouton « + » sur mobile).
+App web de money management : comptes, opérations, virements, opérations récurrentes, import CSV bancaire,
+budgets mensuels, objectifs d'épargne et tableau de bord. Responsive (sidebar sur desktop, barre d'onglets + bouton « + »
+sur mobile) et installable comme une app (PWA).
 
 ## Stack
 
-- **client/** — React 19 + TypeScript + Vite, React Router, Recharts
-- **server/** — Node.js + Express, SQLite (better-sqlite3), auth JWT + bcrypt, validation Zod
+- **client/** — React 19 + TypeScript + Vite, React Router, Recharts, vite-plugin-pwa
+- **server/** — Node.js + Express, SQLite (better-sqlite3), auth JWT + bcrypt, validation Zod, helmet
 
-Les montants sont stockés en **centimes** (entiers) côté base pour éviter les erreurs d'arrondi.
-Une dépense est un montant négatif, un revenu un montant positif.
+Les montants sont stockés en **centimes** (entiers) côté base pour éviter les erreurs d'arrondi ; l'API parle en euros décimaux.
+Une dépense est un montant négatif, un revenu un montant positif. Un virement = deux lignes liées par un `transfer_id`,
+exclues des revenus, dépenses, budgets et statistiques (mais comptées dans les soldes).
 
 ## Lancer en développement
 
-Prérequis : Node 20+.
+Prérequis : Node 22+ (testé avec Node 24).
 
 ```bash
 # terminal 1 — API sur http://localhost:4000
@@ -28,37 +30,98 @@ npm install
 npm run dev
 ```
 
-## Production
+> Windows : `server/.npmrc` désactive les scripts d'installation, car better-sqlite3 embarque ses binaires précompilés
+> (pas besoin de Visual Studio). Voir `DECISIONS.md`.
+
+## Tests
 
 ```bash
-cd client && npm run build      # génère client/dist
-cd ../server && JWT_SECRET=une-longue-cle-secrete npm start
+cd server && npm test                       # API : vitest + supertest, base en mémoire
+cd client && npx tsc -b && npm run build    # typage + build
+cd client && npx playwright install chromium   # une fois
+cd client && npm run test:e2e               # e2e Playwright en 1366×900 et 390×844 + PWA sur le build de prod
+SCREENSHOTS=1 npx playwright test screenshots   # captures de tous les écrans dans docs/screenshots/
+```
+
+Les tests e2e démarrent leur propre API (port 4100, base `server/e2e.db` réinitialisée avec le compte démo) et leur propre
+Vite (port 5180) : ta base de dev n'est jamais touchée.
+
+## Production
+
+### Avec Docker (recommandé)
+
+```bash
+cp .env.example .env          # puis renseigne JWT_SECRET (openssl rand -hex 32)
+docker compose up -d --build  # app complète sur http://localhost:4000
+docker compose exec pecule node server/src/seed-demo.js   # optionnel : compte démo
+```
+
+L'image est construite en plusieurs étapes (build du client, dépendances serveur, image Node finale qui sert l'API et le
+front sur un seul port). La base SQLite vit dans le volume `pecule-data` (`/data/money.db`) : elle survit aux mises à jour
+de l'image. Sauvegarde : `docker compose cp pecule:/data/money.db ./sauvegarde.db`.
+
+Mets un reverse proxy HTTPS (Caddy, nginx, Traefik) devant le conteneur et passe `TRUST_PROXY=1`.
+
+### Sans Docker
+
+```bash
+cd client && npm ci && npm run build      # génère client/dist
+cd ../server && npm ci --omit=dev
+NODE_ENV=production JWT_SECRET=$(openssl rand -hex 32) DB_PATH=/chemin/money.db npm start
 ```
 
 Le serveur Express sert aussi le front buildé : une seule URL (http://localhost:4000).
 
-Variables d'environnement : `PORT`, `JWT_SECRET` (**à changer impérativement**), `DB_PATH`.
+### Variables d'environnement
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `NODE_ENV` | — | `production` active les contrôles de sécurité ci-dessous |
+| `JWT_SECRET` | `dev-secret-change-me` | Clé des sessions. **En production, le serveur refuse de démarrer** si elle est absente, vaut la valeur par défaut ou fait moins de 32 caractères |
+| `PORT` | `4000` | Port HTTP |
+| `DB_PATH` | `server/money.db` | Fichier SQLite (`:memory:` pour les tests) |
+| `CORS_ORIGIN` | vide | Production : origines autorisées, séparées par des virgules. Vide = aucune origine tierce (front servi par le même serveur). En dev, CORS est ouvert |
+| `TRUST_PROXY` | vide | `1` derrière un reverse proxy, pour que la limitation de débit voie la vraie IP |
+| `AUTH_RATE_LIMIT` | `5` | Essais par minute et par IP sur `/api/auth/*` |
+
+### Sécurité
+
+- `helmet` : en-têtes de sécurité et Content-Security-Policy (Google Fonts autorisé).
+- Limitation de débit sur `/api/auth/*` : 5 essais/minute/IP, réponse 429 « Trop de tentatives : réessaie dans une minute. »
+- Chaque ressource est vérifiée comme appartenant à l'utilisateur connecté.
+
+## PWA
+
+Manifest « Pécule » (couleur `#123b3a`), icônes 192/512/maskable et `apple-touch-icon` générées depuis
+`client/public/favicon.svg` par `npm run icons`. Le service worker met en cache le shell : hors ligne, l'app s'ouvre avec
+le bandeau « Hors ligne : tes données s'afficheront au retour du réseau ». Les données de l'API ne sont jamais mises en cache.
 
 ## API
 
-Toutes les routes sauf `/api/auth/*` demandent `Authorization: Bearer <token>`.
+Toutes les routes sauf `/api/health` et `/api/auth/*` demandent `Authorization: Bearer <token>`.
+Les erreurs renvoient `{ error: "message en français" }`.
 
 | Méthode | Route | Rôle |
 |---|---|---|
-| POST | `/api/auth/register` · `/api/auth/login` | Inscription / connexion → `{ token, user }` |
+| GET | `/api/health` | Santé du serveur (Docker, supervision) |
+| POST | `/api/auth/register` · `/api/auth/login` | Inscription / connexion → `{ token, user }` (le login génère les récurrences dues) |
 | GET | `/api/me` | Utilisateur courant |
 | GET/POST/PUT/DELETE | `/api/accounts` | Comptes (le solde est calculé) |
 | GET/POST/DELETE | `/api/categories` | Catégories (11 créées à l'inscription) |
-| GET/POST/PUT/DELETE | `/api/transactions` | Opérations ; filtres `month`, `account_id`, `category_id`, `q` |
-| GET/POST/DELETE | `/api/budgets?month=YYYY-MM` | Plafonds mensuels + dépensé du mois |
-| GET | `/api/stats?month=YYYY-MM` | Revenus, dépenses, solde, répartition, tendance 6 mois |
-| GET | `/api/export.csv` | Export de toutes les opérations (format Excel FR) |
+| GET/POST/PUT/DELETE | `/api/transactions` | Opérations ; filtres `month`, `from`, `to`, `account_id`, `category_id`, `q`, `limit` (max 2000). Modifier ou supprimer une ligne de virement agit sur les deux |
+| POST | `/api/transactions/bulk` | Import : `{ account_id, rows: [{ date, label, amount, category_id? }] }`, montants signés, 2000 lignes max, tout ou rien |
+| POST | `/api/transfers` | Virement `{ from_account_id, to_account_id, amount, date, label? }` |
+| PUT/DELETE | `/api/transfers/:transfer_id` | Modifier / supprimer un virement (les deux lignes) |
+| GET/POST | `/api/recurring` | Opérations récurrentes `{ account_id, category_id?, amount, type, label, frequency: monthly\|weekly\|yearly, day?, start_date, end_date? }` |
+| PUT | `/api/recurring/:id` | Pause / reprise `{ paused: true\|false }` |
+| DELETE | `/api/recurring/:id` | Supprime la règle (les opérations passées restent) |
+| GET/POST/PUT/DELETE | `/api/goals` | Objectifs d'épargne `{ name, target_amount, target_date?, account_id?, saved? }` + progression et `per_month` calculés |
+| POST | `/api/goals/:id/contributions` | Versement (montant positif) ou retrait (négatif) sur un objectif sans compte lié |
+| GET/POST/DELETE | `/api/budgets?month=YYYY-MM` | Plafonds mensuels + dépensé du mois (hors virements) |
+| GET | `/api/stats?month=YYYY-MM` | Revenus, dépenses, solde, répartition, tendance 6 mois, `upcoming` (récurrences à venir du mois) |
+| GET | `/api/export.csv` | Export de toutes les opérations (format Excel FR, virements marqués « Virement ») |
 
-## Pistes pour la suite
+## Suivi
 
-- **Virements entre comptes** (aujourd'hui, un virement compte comme dépense + revenu)
-- **Opérations récurrentes** (loyer, salaire, abonnements générés automatiquement)
-- **Import CSV/OFX** depuis l'export de ta banque
-- **Mobile** : la passer en PWA (manifest + service worker, installable sur l'écran d'accueil),
-  ou réutiliser l'API telle quelle avec une app React Native / Expo
-- Passer à PostgreSQL si plusieurs utilisateurs en production
+- `PROGRESS.md` : avancement de la feuille de route et prochaines évolutions.
+- `DECISIONS.md` : choix techniques et alternatives écartées.
