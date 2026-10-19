@@ -22,6 +22,13 @@ for (const theme of ['light', 'dark'] as const) {
       for (const v of violations.filter((x) => x.impact === 'serious' || x.impact === 'critical'))
         problems.push(`${name} · ${v.id} (${v.impact}) : ${v.nodes.slice(0, 4).map((n) => n.target.join(' ')).join(' | ')}`);
     }
+    // groupe de dépenses partagées du seed (son id dépend de la base)
+    await page.goto('/comptes');
+    await page.locator('#partages').getByRole('link', { name: /Coloc/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Coloc' })).toBeVisible();
+    for (const v of (await new AxeBuilder({ page }).analyze()).violations.filter((x) => x.impact === 'serious' || x.impact === 'critical'))
+      problems.push(`Groupe · ${v.id} (${v.impact}) : ${v.nodes.slice(0, 4).map((n) => n.target.join(' ')).join(' | ')}`);
+
     // vue calendrier des opérations
     await page.goto('/transactions');
     await page.getByRole('radio', { name: 'Calendrier' }).click();

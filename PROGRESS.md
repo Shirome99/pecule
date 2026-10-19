@@ -103,5 +103,9 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   catégories vs mois précédent, budgets tenus/dépassés, nouveaux abonnements et hausses, objectifs. Feuille `@media print`
   (A4, toujours en clair, sans navigation ni bouton, blocs insécables) ; « Télécharger en PDF » = `window.print()`.
   Bannière du 1er au 5 du mois sur l'Aperçu, lien « Voir le récap » pour un mois passé. 2 e2e (`page.pdf()` ≤ 2 pages, clair et sombre).
-- [ ] **Tâche 15 — Dépenses partagées**
+- [x] **Tâche 15 — Dépenses partagées**
+  Tables `groups`, `group_members` (noms libres, l'utilisateur = `is_me`), `group_expenses` + parts, `group_settlements`.
+  Module pur `src/settle.js` : parts égales / % / montants au centime près (plus forts restes), soldes (somme nulle),
+  remboursements (≤ membres − 1). Payé par moi : opération pour ma part seulement. UI : section dans Comptes, page du groupe
+  (« Sarah doit 42 € à Yass », « Marquer comme remboursé »). Seed : coloc à trois. 8 tests API/unitaires + 1 e2e.
 - [ ] **Tâche 16 — Fonctions IA (facultatives, avec l'API Claude)**

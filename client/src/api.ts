@@ -106,6 +106,15 @@ export type YearStats = {
   categories: { id: number | null; name: string; color: string; icon: string; months: number[]; total: number }[];
   top: { id: number; date: string; label: string; amount: number; category_name: string | null; category_icon: string | null }[];
 };
+export type GroupMember = { id: number; name: string; is_me: boolean; balance: number };
+export type SplitMode = 'equal' | 'percent' | 'amounts';
+export type Group = {
+  id: number; name: string; total: number; members: GroupMember[];
+  expenses: { id: number; label: string; date: string; amount: number; paid_by: number; split_mode: SplitMode; transaction_id: number | null; shares: { member_id: number; share: number }[] }[];
+  settlements: { id: number; from: number; to: number; amount: number; date: string }[];
+  suggestions: { from: number; to: number; amount: number }[];
+};
+export type GroupSummary = { id: number; name: string; members: string[]; my_balance: number; total: number };
 export type Tag = { name: string; count: number; last_date: string };
 export type TagSummary = {
   name: string; count: number; total: number; income: number; from: string; to: string;

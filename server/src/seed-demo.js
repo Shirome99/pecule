@@ -75,6 +75,25 @@ db.prepare('INSERT INTO rules (user_id, pattern, category_id, priority) VALUES (
     link.run(ins.run(uid, acc, cat[category], cents, label, `${ym}-${day}`).lastInsertRowid, tagId);
 }
 
+// dépenses partagées : une coloc à trois
+{
+  const { splitExpense } = require('./settle');
+  const gid = db.prepare('INSERT INTO groups (user_id, name) VALUES (?,?)').run(uid, 'Coloc').lastInsertRowid;
+  const member = (name, me = 0) => db.prepare('INSERT INTO group_members (user_id, group_id, name, is_me) VALUES (?,?,?,?)').run(uid, gid, name, me).lastInsertRowid;
+  const [me, sarah, leo] = [member('Démo', 1), member('Sarah'), member('Léo')];
+  const day1 = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-01`;
+  const expense = (label, cents, paidBy, txId = null) => {
+    const id = db.prepare(`INSERT INTO group_expenses (user_id, group_id, label, date, amount, paid_by, split_mode, transaction_id)
+      VALUES (?,?,?,?,?,?,'equal',?)`).run(uid, gid, label, day1, cents, paidBy, txId).lastInsertRowid;
+    for (const [m, share] of Object.entries(splitExpense(cents, 'equal', [me, sarah, leo]).shares))
+      db.prepare('INSERT INTO group_expense_shares (expense_id, member_id, share) VALUES (?,?,?)').run(id, m, share);
+  };
+  // payé par moi : seule ma part (1/3) est une dépense sur mon compte
+  expense('Courses communes', 9000, me, ins.run(uid, acc, cat['Courses'], -3000, 'Courses communes (Coloc, ma part)', day1).lastInsertRowid);
+  expense('Internet', 3000, sarah);
+  expense('Électricité', 7500, leo);
+}
+
 // ---------- patrimoine : placements valorisés à la main et crédit immobilier ----------
 const { cashAt } = require('./wealth');
 const { iso, daysIn, addMonths, localToday } = require('./dates');

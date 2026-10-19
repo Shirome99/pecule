@@ -230,3 +230,18 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
   pour garder barres et couleurs, `break-inside: avoid` sur chaque bloc.
 - Test du nombre de pages : comptage des objets `/Type /Page` du PDF produit par `page.pdf()` (pas de dépendance PDF).
 - Bannière : basée sur la date du navigateur (le test la fixe avec `page.clock`).
+
+## 2026-10-19 — Dépenses partagées (tâche 15)
+**Choix** :
+- L'utilisateur est un membre comme les autres (`is_me`, à son prénom) : les soldes se calculent sans cas particulier.
+- Arrondis : méthode des plus forts restes (à égalité, dans l'ordre des membres) ; montants personnalisés : leur somme doit
+  être exactement le total, pourcentages : 100 % à 0,01 près — sinon un message dit de combien ça dépasse.
+- Remboursements : glouton « plus gros débiteur → plus gros créancier ». Chaque étape solde au moins une personne, donc au
+  plus n − 1 remboursements (le minimum absolu est un problème NP-difficile, le glouton est optimal dans les cas courants).
+- Payé par moi : une opération de **ma part** sur le compte choisi (« Libellé (Groupe, ma part) ») ; le reste est une
+  créance qui ne crée aucune opération. Payé par un autre : rien sur mes comptes. Un remboursement reçu ou fait ne crée pas
+  d'opération non plus (sinon l'argent compterait deux fois) — le solde bancaire réel se rejoint quand tout est soldé.
+- Supprimer une dépense supprime l'opération de ma part ; supprimer le groupe garde les opérations (elles ont eu lieu).
+  Un membre qui a des dépenses ne peut pas être retiré.
+- Accès depuis la page Comptes (section « Dépenses partagées »), pas de 5e onglet.
+**Écarté** : comptes utilisateurs pour les membres (demandé : noms libres) ; devise par groupe (multi-devises hors périmètre).

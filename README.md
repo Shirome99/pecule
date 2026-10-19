@@ -144,6 +144,8 @@ Les erreurs renvoient `{ error: "message en français" }`.
 | GET/POST/PUT/DELETE | `/api/rules` | Règles de catégorisation `{ pattern, category_id, priority? }` (motif normalisé comme les libellés) |
 | POST | `/api/rules/apply` | Classe les opérations sans catégorie → `{ classified }` |
 | GET | `/api/tags` · `/api/tags/:name` | Tags utilisés (autocomplétion) ; bilan d'un tag : total, période, répartition par catégorie |
+| GET/POST/PUT/DELETE | `/api/groups` | Dépenses partagées : groupes `{ name, members: [prénoms] }` (tu es le membre `is_me`) ; le détail donne soldes, dépenses, remboursements faits et `suggestions` (qui doit combien à qui) |
+| POST/DELETE | `/api/groups/:id/members` · `/expenses` · `/settlements` | Membres ; dépense `{ label, date, amount, paid_by, split_mode: equal|percent|amounts, participants? | values?, account_id?, category_id? }` (payée par toi : une opération pour ta part seulement) ; « Marquer comme remboursé » `{ from, to, amount }` |
 | GET | `/api/export.csv` | Export de toutes les opérations (format Excel FR, virements marqués « Virement ») |
 
 ## Suivi

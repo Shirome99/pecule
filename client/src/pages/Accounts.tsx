@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { api, type Account, type Goal, type Recurring } from '../api';
+import { Link, useNavigate } from 'react-router-dom';
+import { api, type Account, type Goal, type GroupSummary, type Recurring } from '../api';
 import { useStore } from '../store';
 import { ACCOUNT_TYPES, FAMILIES, frequencyLabel, money, percent, shortDate, signed } from '../format';
 import Modal from '../components/Modal';
@@ -68,6 +68,8 @@ export default function Accounts() {
       <GoalsSection />
 
       <RecurringSection />
+
+      <GroupsSection />
 
       <section className="panel">
         <div className="panel-head">
@@ -364,6 +366,84 @@ function CategoryForm({ onClose }: { onClose: () => void }) {
         </div>
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="form-actions"><button className="btn primary">Ajouter</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+function GroupsSection() {
+  const { version } = useStore();
+  const [groups, setGroups] = useState<GroupSummary[] | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    api.get<GroupSummary[]>('/groups').then(setGroups).catch(() => setGroups([]));
+  }, [version]);
+
+  const loaded = groups !== null;
+  useEffect(() => {
+    if (loaded && window.location.hash === '#partages') document.getElementById('partages')?.scrollIntoView();
+  }, [loaded]);
+
+  return (
+    <section className="panel" id="partages">
+      <div className="panel-head">
+        <h2>Dépenses partagées</h2>
+        {groups && groups.length > 0 && <button className="link" onClick={() => setCreating(true)}>Nouveau groupe</button>}
+      </div>
+      {groups === null ? <p className="muted">Chargement…</p> : groups.length === 0 ? (
+        <>
+          <p className="muted">Coloc, couple, voyage : note qui a payé quoi, Pécule calcule qui doit combien à qui.</p>
+          <button className="btn ghost" onClick={() => setCreating(true)}>+ Créer un groupe</button>
+        </>
+      ) : (
+        <ul className="account-list">
+          {groups.map((g) => (
+            <li key={g.id}>
+              <Link to={`/partages/${g.id}`} className="account-row">
+                <span className="tx-main">
+                  <span className="tx-label">{g.name}</span>
+                  <span className="tx-meta">{g.members.join(', ')}</span>
+                </span>
+                <span className={`tx-amount ${g.my_balance > 0 ? 'in' : g.my_balance < 0 ? 'out' : ''}`}>
+                  {g.my_balance > 0 ? `on te doit ${money(g.my_balance)}` : g.my_balance < 0 ? `tu dois ${money(-g.my_balance)}` : 'quitte'}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {creating && <GroupForm onClose={() => setCreating(false)} />}
+    </section>
+  );
+}
+
+function GroupForm({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [members, setMembers] = useState('');
+  const [error, setError] = useState('');
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    try {
+      const g = await api.post<{ id: number }>('/groups', { name, members: members.split(/[,\n]/).map((m) => m.trim()).filter(Boolean) });
+      navigate(`/partages/${g.id}`);
+    } catch (err) { setError((err as Error).message); }
+  }
+
+  return (
+    <Modal title="Nouveau groupe" onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <label className="field"><span>Nom</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Coloc, Vacances Maroc" required />
+        </label>
+        <label className="field"><span>Avec qui ? (prénoms séparés par des virgules)</span>
+          <input value={members} onChange={(e) => setMembers(e.target.value)} placeholder="Sarah, Léo" required />
+        </label>
+        <p className="muted small">Pas besoin qu'ils aient un compte : tu es le seul à te connecter.</p>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="form-actions"><button className="btn primary">Créer</button></div>
       </form>
     </Modal>
   );

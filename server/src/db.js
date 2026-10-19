@@ -161,6 +161,50 @@ CREATE TABLE IF NOT EXISTS transaction_tags (
 CREATE INDEX IF NOT EXISTS idx_tx_tags_tag ON transaction_tags(tag_id);
 `);
 
+// dépenses partagées : les membres sont des noms libres, l'utilisateur est le membre is_me
+db.exec(`
+CREATE TABLE IF NOT EXISTS groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS group_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  is_me INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS group_expenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  date TEXT NOT NULL,
+  amount INTEGER NOT NULL,          -- centimes, total payé
+  paid_by INTEGER NOT NULL REFERENCES group_members(id),
+  split_mode TEXT NOT NULL CHECK (split_mode IN ('equal','percent','amounts')),
+  transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL, -- ma part, si c'est moi qui ai payé
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS group_expense_shares (
+  expense_id INTEGER NOT NULL REFERENCES group_expenses(id) ON DELETE CASCADE,
+  member_id INTEGER NOT NULL REFERENCES group_members(id),
+  share INTEGER NOT NULL,           -- centimes
+  PRIMARY KEY (expense_id, member_id)
+);
+CREATE TABLE IF NOT EXISTS group_settlements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  from_member INTEGER NOT NULL REFERENCES group_members(id),
+  to_member INTEGER NOT NULL REFERENCES group_members(id),
+  amount INTEGER NOT NULL,          -- centimes
+  date TEXT NOT NULL
+);
+`);
+
 const DEFAULT_CATEGORIES = [
   ['Logement', 'expense', '#6366f1', '🏠'],
   ['Courses', 'expense', '#10b981', '🛒'],
