@@ -2,7 +2,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { db } = require('../db');
-const { wrap, toCents, fromCents, isoDate, auth, owns } = require('../lib');
+const { wrap, toCents, fromCents, isoDate, auth, owns, view } = require('../lib');
 const { familyOf } = require('../accounts');
 const { networthSeries } = require('../wealth');
 const { localToday } = require('../dates');
@@ -94,17 +94,20 @@ router.get('/api/loans/:id/schedule', auth, wrap((req, res) => {
 }));
 
 // ---------- patrimoine net ----------
-router.get('/api/networth', auth, wrap((req, res) => {
+/** Patrimoine net à chaque fin de mois et variations. */
+function networthOf(userId, query = {}) {
   const { months } = z.object({
     months: z.coerce.number().int().min(1, 'months : 1 minimum').max(120, 'months : 120 maximum').default(24),
-  }).parse(req.query);
-  const points = networthSeries(req.userId, months).map((p) => ({
+  }).parse(query);
+  const points = networthSeries(userId, months).map((p) => ({
     ...p, liquid: fromCents(p.liquid), investments: fromCents(p.investments), debts: fromCents(p.debts), net: fromCents(p.net),
   }));
   const current = points[points.length - 1];
   const ago = (n) => (points.length > n ? points[points.length - 1 - n].net : null);
   const change = (n) => (ago(n) === null ? null : Math.round((current.net - ago(n)) * 100) / 100);
-  res.json({ current, change_1m: change(1), change_12m: change(12), months: points });
-}));
+  return { current, change_1m: change(1), change_12m: change(12), months: points };
+}
 
-module.exports = router;
+router.get('/api/networth', auth, view(networthOf));
+
+module.exports = Object.assign(router, { networthOf });

@@ -1,7 +1,7 @@
 // Prévision de fin de mois : lit les données, le calcul est dans le module pur forecast.js.
 const express = require('express');
 const { db } = require('../db');
-const { wrap, fromCents, auth } = require('../lib');
+const { fromCents, auth, view, HttpError } = require('../lib');
 const { generateRecurring, localToday } = require('../recurring');
 const { forecast } = require('../forecast');
 const { addMonths } = require('../dates');
@@ -9,12 +9,13 @@ const { FAMILIES, SPENDABLE, SAVINGS, sqlList } = require('../accounts');
 
 const router = express.Router();
 
-router.get('/api/forecast', auth, wrap((req, res) => {
-  const uid = req.userId;
+/** Prévision du mois en cours (chiffres réels pour un mois passé). */
+function forecastOf(userId, query = {}) {
+  const uid = userId;
   const now = localToday();
-  const month = req.query.month || now.slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Mois invalide (attendu AAAA-MM)' });
-  if (month > now.slice(0, 7)) return res.status(400).json({ error: 'La prévision ne porte que sur le mois en cours' });
+  const month = query.month || now.slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new HttpError(400, 'Mois invalide (attendu AAAA-MM)');
+  if (month > now.slice(0, 7)) throw new HttpError(400, 'La prévision ne porte que sur le mois en cours');
   generateRecurring(uid);
 
   const liquid = sqlList(FAMILIES.liquid);
@@ -43,7 +44,9 @@ router.get('/api/forecast', auth, wrap((req, res) => {
   const f = forecast({ now, month, transactions, firstDate, rules, spendableBalance });
   const euros = Object.fromEntries(Object.entries(f).map(([k, v]) =>
     [k, typeof v === 'number' && !['days_in_month', 'days_remaining', 'history_months'].includes(k) ? fromCents(v) : v]));
-  res.json(euros);
-}));
+  return euros;
+}
 
-module.exports = router;
+router.get('/api/forecast', auth, view(forecastOf));
+
+module.exports = Object.assign(router, { forecastOf });

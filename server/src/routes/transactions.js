@@ -2,7 +2,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { db } = require('../db');
-const { wrap, toCents, fromCents, isoDate, auth, owns, checkTxRefs } = require('../lib');
+const { wrap, toCents, fromCents, isoDate, auth, owns, checkTxRefs, view } = require('../lib');
 const { getTransferLines, saveTransfer } = require('../transfers');
 const { remember } = require('../undo');
 const { rulesOf, autoCategory, ruleSuggestion } = require('../categorize');
@@ -36,10 +36,11 @@ function setTags(userId, txId, names) {
   })();
 }
 
-router.get('/api/transactions', auth, wrap((req, res) => {
-  const { month, account_id, category_id, q, limit, from, to, tag } = req.query;
+/** Opérations filtrées (mois, période, compte, catégorie, tag, texte). */
+function listTransactions(userId, query = {}) {
+  const { month, account_id, category_id, q, limit, from, to, tag } = query;
   const where = ['t.user_id = ?'];
-  const params = [req.userId];
+  const params = [userId];
   if (month) { where.push("substr(t.date,1,7) = ?"); params.push(month); }
   if (from) { where.push('t.date >= ?'); params.push(from); }
   if (to) { where.push('t.date <= ?'); params.push(to); }
@@ -50,7 +51,7 @@ router.get('/api/transactions', auth, wrap((req, res) => {
   if (q) { where.push('t.label LIKE ?'); params.push(`%${q}%`); }
   if (tag) {
     where.push('t.id IN (SELECT tt.transaction_id FROM transaction_tags tt JOIN tags g ON g.id = tt.tag_id WHERE g.user_id = ? AND g.name = ?)');
-    params.push(req.userId, String(tag));
+    params.push(userId, String(tag));
   }
   const rows = db.prepare(`
     SELECT t.*, c.name AS category_name, c.color AS category_color, c.icon AS category_icon, a.name AS account_name,
@@ -64,8 +65,10 @@ router.get('/api/transactions', auth, wrap((req, res) => {
     WHERE ${where.join(' AND ')}
     ORDER BY t.date DESC, t.id DESC
     LIMIT ?`).all(...params, Math.min(Number(limit) || 500, 2000));
-  res.json(rows.map(({ tag_list, ...r }) => ({ ...r, amount: fromCents(r.amount), tags: tag_list ? tag_list.split(' ').sort() : [] })));
-}));
+  return rows.map(({ tag_list, ...r }) => ({ ...r, amount: fromCents(r.amount), tags: tag_list ? tag_list.split(' ').sort() : [] }));
+}
+
+router.get('/api/transactions', auth, view(listTransactions));
 
 router.post('/api/transactions', auth, wrap((req, res) => {
   const t = txSchema.parse(req.body);
@@ -170,4 +173,4 @@ router.get('/api/export.csv', auth, wrap((req, res) => {
   res.send('﻿' + csv);
 }));
 
-module.exports = router;
+module.exports = Object.assign(router, { listTransactions });

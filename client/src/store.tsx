@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, ApiError, cacheUser, getCachedUser, getToken, setToken, type Account, type Category, type User } from './api';
+import { api, ApiError, cacheUser, getCachedUser, getToken, setToken, type Account, type AiStatus, type Category, type User } from './api';
 import { currentMonth } from './format';
 
 type Store = {
@@ -19,6 +19,9 @@ type Store = {
   openNewTx: () => void;
   newTxOpen: boolean;
   closeNewTx: () => void;
+  /** fonctions IA (ticket, assistant) : affichées seulement si le serveur les propose */
+  ai: AiStatus;
+  refreshAi: () => void;
 };
 
 const Ctx = createContext<Store>(null!);
@@ -32,6 +35,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [month, setMonth] = useState(currentMonth());
   const [version, setVersion] = useState(0);
   const [newTxOpen, setNewTxOpen] = useState(false);
+  const [ai, setAi] = useState<AiStatus>({ enabled: false });
+  const refreshAi = useCallback(() => { api.get<AiStatus>('/ai/status').then(setAi).catch(() => setAi({ enabled: false })); }, []);
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -83,6 +88,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api.get<Category[]>('/categories').then(setCategories).catch(() => {});
   }, [user, version]);
 
+  useEffect(() => { if (user) refreshAi(); }, [user, refreshAi]);
+
   // compte neuf : la première opération (ajoutée sans finir l'accueil) remplace le parcours par l'Aperçu
   const onboarding = !!user?.onboarding;
   useEffect(() => {
@@ -93,7 +100,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider
       value={{
         user, ready, login, logout, updateUser, accounts, categories, month, setMonth, version, refresh,
-        newTxOpen, openNewTx: () => setNewTxOpen(true), closeNewTx: () => setNewTxOpen(false),
+        newTxOpen, openNewTx: () => setNewTxOpen(true), closeNewTx: () => setNewTxOpen(false), ai, refreshAi,
       }}
     >
       {children}

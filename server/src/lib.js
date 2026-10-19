@@ -6,9 +6,15 @@ const { DEFAULT_JWT_SECRET } = require('./security');
 
 const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 
+/** Erreur métier avec son code HTTP (levée par les fonctions de lecture partagées avec l'assistant). */
+class HttpError extends Error {
+  constructor(status, message) { super(message); this.status = status; }
+}
+
 const wrap = (fn) => (req, res) => {
   try { fn(req, res); }
   catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });
     if (e instanceof z.ZodError) {
       const issue = e.issues[0];
       // erreur dans un tableau de lignes (import) : on indique la ligne fautive
@@ -50,4 +56,7 @@ function checkTxRefs(t, userId) {
   return null;
 }
 
-module.exports = { wrap, toCents, fromCents, isoDate, sign, publicUser, auth, owns, checkTxRefs };
+/** Route GET qui renvoie fn(userId, query) : la même fonction sert aux outils (lecture seule) de l'assistant. */
+const view = (fn) => wrap((req, res) => res.json(fn(req.userId, req.query)));
+
+module.exports = { HttpError, view, wrap, toCents, fromCents, isoDate, sign, publicUser, auth, owns, checkTxRefs };

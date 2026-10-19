@@ -205,6 +205,17 @@ CREATE TABLE IF NOT EXISTS group_settlements (
 );
 `);
 
+// fonctions IA : consentement (envoi des données à Anthropic) et nombre de questions posées par jour
+addColumn('users', 'ai_consent_at', 'TEXT');
+db.exec(`
+CREATE TABLE IF NOT EXISTS ai_usage (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, day)
+);
+`);
+
 const DEFAULT_CATEGORIES = [
   ['Logement', 'expense', '#6366f1', '🏠'],
   ['Courses', 'expense', '#10b981', '🛒'],

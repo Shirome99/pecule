@@ -245,3 +245,25 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
   Un membre qui a des dépenses ne peut pas être retiré.
 - Accès depuis la page Comptes (section « Dépenses partagées »), pas de 5e onglet.
 **Écarté** : comptes utilisateurs pour les membres (demandé : noms libres) ; devise par groupe (multi-devises hors périmètre).
+
+## 2026-10-19 — Fonctions IA (tâche 16)
+**Choix** :
+- Modèle par défaut `claude-sonnet-5-5` (demandé par la feuille de route), configurable par `ANTHROPIC_MODEL`. Pour les
+  modèles qui la permettent (Sonnet 5.5, Opus 5.5, Opus 5, Fable 5.1), appel par `client.beta.messages.create` avec la reprise
+  serveur après refus (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`) ; `stop_reason: "refusal"` est
+  traité avant de lire la réponse. Pensée adaptative par défaut ; effort `low` pour le ticket, `medium` pour l'assistant.
+- Ticket : `output_config.format` (JSON schema) **et** revalidation Zod stricte côté serveur ; champ illisible → `null`
+  (montant 0, date impossible, catégorie hors des catégories de l'utilisateur). Erreurs SDK traduites par classes typées.
+- Assistant : boucle d'outils écrite à la main (pas de Tool Runner, qui est en bêta et attendrait des schémas Zod 3) ;
+  `tool_choice` auto (le forçage est refusé par Sonnet 5.5). Les outils n'ont **aucun** paramètre utilisateur : l'id vient
+  de la session ; leurs entrées sont validées par Zod `.strict()` (un `user_id` glissé par le modèle est rejeté). Ils
+  appellent les mêmes fonctions que les routes GET (`monthStats`, `listTransactions`, `budgetsOf`, `forecastOf`,
+  `networthOf`, `subscriptionsView`), extraites pour l'occasion avec un helper `view()` sans changer les routes.
+- Une question = un échange indépendant (pas d'historique envoyé) : moins de données transmises, coût prévisible. 8 tours
+  d'outils au plus. Limite : 20 questions par jour et par utilisateur (table `ai_usage`), comptées avant l'appel.
+- Consentement : colonne `users.ai_consent_at`, demandé dans le formulaire ou le panneau avant le 1er usage (pas de modale
+  dans la modale).
+- Corps JSON porté à 3 Mo (photo 1600 px en base64).
+- Tests : faux client injecté (`ai.setClient`) ; aucun appel réseau, aucune clé réelle. Côté e2e, l'API IA est simulée par
+  `page.route` pour vérifier le parcours du ticket dans l'interface.
+**Écarté** : stocker les photos ; donner au modèle un accès SQL ou des outils d'écriture ; historique de conversation.

@@ -27,7 +27,7 @@ app.use(helmet({
   },
 }));
 app.use(cors(corsOptions(process.env)));
-app.use(express.json({ limit: '2mb' })); // import CSV : jusqu'à 2000 lignes
+app.use(express.json({ limit: '3mb' })); // import CSV (2000 lignes) et photo de ticket (1600 px)
 app.use('/api/auth', rateLimit({
   windowMs: 60_000,
   max: Number(process.env.AUTH_RATE_LIMIT) || 5,
@@ -38,7 +38,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // un routeur par domaine ; chaque routeur déclare ses chemins complets (/api/...)
 for (const name of ['auth', 'accounts', 'wealth', 'categories', 'transactions', 'transfers', 'recurring',
-  'forecast', 'subscriptions', 'goals', 'budgets', 'stats', 'undo', 'rules', 'tags', 'insights', 'groups']) {
+  'forecast', 'subscriptions', 'goals', 'budgets', 'stats', 'undo', 'rules', 'tags', 'insights', 'groups', 'ai']) {
   app.use(require(`./routes/${name}`));
 }
 

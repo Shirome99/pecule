@@ -1,7 +1,7 @@
 // Statistiques du mois pour l'Aperçu.
 const express = require('express');
 const { db } = require('../db');
-const { wrap, fromCents, auth } = require('../lib');
+const { wrap, fromCents, auth, view } = require('../lib');
 const { generateRecurring, upcomingInMonth } = require('../recurring');
 const { FAMILIES, sqlList } = require('../accounts');
 const { lastMonths, localToday } = require('../dates');
@@ -12,9 +12,10 @@ const liquidTypes = sqlList(FAMILIES.liquid);
 
 const router = express.Router();
 
-router.get('/api/stats', auth, wrap((req, res) => {
-  const month = req.query.month || new Date().toISOString().slice(0, 7);
-  const uid = req.userId;
+/** Revenus, dépenses, solde des liquidités, répartition et tendance 6 mois d'un mois. */
+function monthStats(userId, query = {}) {
+  const month = query.month || new Date().toISOString().slice(0, 7);
+  const uid = userId;
   generateRecurring(uid);
   const upcoming = upcomingInMonth(uid, month);
 
@@ -49,7 +50,7 @@ router.get('/api/stats', auth, wrap((req, res) => {
     expenses: fromCents(trendMap[mo]?.expenses || 0),
   }));
 
-  res.json({
+  return {
     month,
     income: fromCents(totals.income),
     expenses: fromCents(totals.expenses),
@@ -59,8 +60,10 @@ router.get('/api/stats', auth, wrap((req, res) => {
     trend,
     upcoming: fromCents(upcoming.total),
     upcoming_count: upcoming.count,
-  });
-}));
+  };
+}
+
+router.get('/api/stats', auth, view(monthStats));
 
 // ---------- vue annuelle ----------
 router.get('/api/stats/year', auth, wrap((req, res) => {
@@ -82,4 +85,4 @@ router.get('/api/stats/year', auth, wrap((req, res) => {
   });
 }));
 
-module.exports = router;
+module.exports = Object.assign(router, { monthStats });

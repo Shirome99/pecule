@@ -92,6 +92,8 @@ Le serveur Express sert aussi le front buildé : une seule URL (http://localhost
 | `CORS_ORIGIN` | vide | Production : origines autorisées, séparées par des virgules. Vide = aucune origine tierce (front servi par le même serveur). En dev, CORS est ouvert |
 | `TRUST_PROXY` | vide | `1` derrière un reverse proxy, pour que la limitation de débit voie la vraie IP |
 | `AUTH_RATE_LIMIT` | `5` | Essais par minute et par IP sur `/api/auth/*` |
+| `ANTHROPIC_API_KEY` | vide | Active les fonctions IA (ticket en photo, assistant). Sans clé : aucun bouton IA, rien ne plante. La clé ne quitte jamais le serveur |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5-5` | Modèle Claude utilisé par les fonctions IA |
 
 ### Sécurité
 
@@ -146,6 +148,10 @@ Les erreurs renvoient `{ error: "message en français" }`.
 | GET | `/api/tags` · `/api/tags/:name` | Tags utilisés (autocomplétion) ; bilan d'un tag : total, période, répartition par catégorie |
 | GET/POST/PUT/DELETE | `/api/groups` | Dépenses partagées : groupes `{ name, members: [prénoms] }` (tu es le membre `is_me`) ; le détail donne soldes, dépenses, remboursements faits et `suggestions` (qui doit combien à qui) |
 | POST/DELETE | `/api/groups/:id/members` · `/expenses` · `/settlements` | Membres ; dépense `{ label, date, amount, paid_by, split_mode: equal|percent|amounts, participants? | values?, account_id?, category_id? }` (payée par toi : une opération pour ta part seulement) ; « Marquer comme remboursé » `{ from, to, amount }` |
+| GET | `/api/ai/status` | Fonctions IA : `{ enabled }` (+ `consented`, `remaining` questions du jour si une clé est configurée) |
+| POST | `/api/ai/consent` | `{ accepted }` : accord pour envoyer les données concernées à Anthropic (demandé avant la 1re utilisation) |
+| POST | `/api/ai/receipt` | `{ image (base64), media_type }` → `{ amount, date, merchant, category_id }` validés (Zod) ; rien n'est enregistré, l'image n'est pas stockée |
+| POST | `/api/ai/ask` | `{ question }` → `{ answer, tools, remaining }` ; outils en lecture seule limités à l'utilisateur ; 20 questions/jour |
 | GET | `/api/export.csv` | Export de toutes les opérations (format Excel FR, virements marqués « Virement ») |
 
 ## Suivi

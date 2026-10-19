@@ -11,11 +11,13 @@ import ForecastLine from '../components/ForecastLine';
 import SubscriptionsCard from '../components/SubscriptionsCard';
 import NetworthCard from '../components/NetworthCard';
 import InsightsCard from '../components/InsightsCard';
+import AssistantPanel from '../components/AssistantPanel';
 
 const TrendChart = lazy(() => import('../components/TrendChart'));
 
 export default function Dashboard() {
-  const { month, version, user } = useStore();
+  const { month, version, user, ai } = useStore();
+  const [asking, setAsking] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -42,7 +44,11 @@ export default function Dashboard() {
     <div className="page">
       <header className="page-head">
         <h1>Bonjour {user?.name}</h1>
-        <MonthPicker />
+        <div className="head-actions">
+          {/* sans clé API côté serveur, aucun bouton IA */}
+          {ai.enabled && <button className="btn ghost" onClick={() => setAsking(true)}>Poser une question</button>}
+          <MonthPicker />
+        </div>
       </header>
 
       {/* du 1er au 5 du mois, le récap du mois précédent ; pour un mois passé, son récap */}
@@ -157,6 +163,8 @@ export default function Dashboard() {
         )}
         {stats.net !== 0 && <p className="muted small net-line">Solde net du mois : {signed(stats.net)}</p>}
       </section>
+
+      {asking && <AssistantPanel onClose={() => setAsking(false)} />}
     </div>
   );
 }

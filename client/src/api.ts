@@ -115,6 +115,10 @@ export type Group = {
   suggestions: { from: number; to: number; amount: number }[];
 };
 export type GroupSummary = { id: number; name: string; members: string[]; my_balance: number; total: number };
+/** Fonctions IA : absentes si le serveur n'a pas de clé API */
+export type AiStatus = { enabled: false } | { enabled: true; consented: boolean; remaining: number; daily_limit: number };
+export type ReceiptReading = { amount: number | null; date: string | null; merchant: string | null; category_id: number | null };
+export type AiAnswer = { answer: string; tools: string[]; remaining: number };
 export type Tag = { name: string; count: number; last_date: string };
 export type TagSummary = {
   name: string; count: number; total: number; income: number; from: string; to: string;

@@ -2,7 +2,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { db } = require('../db');
-const { wrap, toCents, fromCents, auth, owns } = require('../lib');
+const { wrap, toCents, fromCents, auth, owns, view } = require('../lib');
 const { localToday } = require('../dates');
 const { detectSubscriptions, normalizeLabel } = require('../subscriptions');
 const { FAMILIES, sqlList } = require('../accounts');
@@ -23,10 +23,11 @@ function subscriptionsOf(userId) {
   return detectSubscriptions(transactions, { now, ignored, tracked });
 }
 
-router.get('/api/subscriptions', auth, wrap((req, res) => {
-  const cats = Object.fromEntries(db.prepare('SELECT * FROM categories WHERE user_id = ?').all(req.userId).map((c) => [c.id, c]));
-  const accs = Object.fromEntries(db.prepare('SELECT id, name FROM accounts WHERE user_id = ?').all(req.userId).map((a) => [a.id, a.name]));
-  const items = subscriptionsOf(req.userId).map((s) => ({
+/** Abonnements détectés, avec totaux mensuel et annuel. */
+function subscriptionsView(userId, query = {}) {
+  const cats = Object.fromEntries(db.prepare('SELECT * FROM categories WHERE user_id = ?').all(userId).map((c) => [c.id, c]));
+  const accs = Object.fromEntries(db.prepare('SELECT id, name FROM accounts WHERE user_id = ?').all(userId).map((a) => [a.id, a.name]));
+  const items = subscriptionsOf(userId).map((s) => ({
     ...s,
     amount: fromCents(s.amount),
     annual_cost: fromCents(s.annual_cost),
@@ -39,8 +40,10 @@ router.get('/api/subscriptions', auth, wrap((req, res) => {
     },
   }));
   const annual = items.reduce((sum, s) => sum + toCents(s.annual_cost), 0);
-  res.json({ items, monthly_total: fromCents(Math.round(annual / 12)), annual_total: fromCents(annual) });
-}));
+  return { items, monthly_total: fromCents(Math.round(annual / 12)), annual_total: fromCents(annual) };
+}
+
+router.get('/api/subscriptions', auth, view(subscriptionsView));
 
 const subscriptionKey = z.object({ key: z.string().trim().min(1, 'Abonnement manquant') });
 
@@ -62,4 +65,4 @@ router.post('/api/subscriptions/track', auth, wrap((req, res) => {
   res.status(201).json({ id });
 }));
 
-module.exports = router;
+module.exports = Object.assign(router, { subscriptionsView });

@@ -10,6 +10,7 @@ const PAGES = [
 
 for (const theme of ['light', 'dark'] as const) {
   test(`accessibilité (axe) en thème ${theme === 'light' ? 'clair' : 'sombre'} : aucune violation grave`, async ({ page }) => {
+    test.setTimeout(90_000); // une douzaine d'écrans analysés
     await page.addInitScript((t) => localStorage.setItem('pecule_theme', t), theme);
     await loginDemo(page);
     const problems: string[] = [];

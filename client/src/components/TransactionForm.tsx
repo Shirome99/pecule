@@ -1,21 +1,54 @@
-import { useState, type FormEvent } from 'react';
-import { api, type RuleSuggestion, type Transaction } from '../api';
+import { useRef, useState, type FormEvent } from 'react';
+import { api, type ReceiptReading, type RuleSuggestion, type Transaction } from '../api';
 import { useStore } from '../store';
 import { today } from '../format';
 import Modal from './Modal';
 import { useUndoDelete } from '../useUndoDelete';
 import { useToast } from './Toast';
 import TagInput from './TagInput';
+import AiConsent from './AiConsent';
+import { resizeImage } from '../image';
 
 type Props = { tx?: Transaction; onClose: () => void };
 type Kind = 'expense' | 'income' | 'transfer';
 const KIND_LABELS: Record<Kind, string> = { expense: 'Dépense', income: 'Revenu', transfer: 'Virement' };
 
 export default function TransactionForm({ tx, onClose }: Props) {
-  const { accounts, categories, refresh } = useStore();
+  const { accounts, categories, refresh, ai } = useStore();
   const undoDelete = useUndoDelete();
   const toast = useToast();
   const [tags, setTags] = useState<string[]>(tx?.tags ?? []);
+  // ticket en photo : préremplit le formulaire, n'enregistre jamais tout seul
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [askConsent, setAskConsent] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState('');
+
+  function scan() {
+    if (ai.enabled && !ai.consented) return setAskConsent(true);
+    fileRef.current?.click();
+  }
+
+  async function onPhoto(file: File | undefined) {
+    if (!file) return;
+    setError('');
+    setScanNote('');
+    setScanning(true);
+    try {
+      const { data, media_type } = await resizeImage(file);
+      const r = await api.post<ReceiptReading>('/ai/receipt', { image: data, media_type });
+      if (r.amount) setAmount(String(r.amount).replace('.', ','));
+      if (r.merchant) setLabel(r.merchant);
+      if (r.date) setDate(r.date);
+      if (r.category_id) setCategoryId(r.category_id);
+      setScanNote(r.amount || r.merchant ? 'Prérempli à partir du ticket : vérifie avant d’ajouter.' : 'Ticket illisible : saisis l’opération à la main.');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setScanning(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
   const [type, setType] = useState<Kind>(tx?.transfer_id ? 'transfer' : tx && tx.amount > 0 ? 'income' : 'expense');
   const [amount, setAmount] = useState(tx ? String(Math.abs(tx.amount)).replace('.', ',') : '');
   const [label, setLabel] = useState(tx?.label ?? '');
@@ -99,6 +132,21 @@ export default function TransactionForm({ tx, onClose }: Props) {
             </button>
           ))}
         </div>
+
+        {ai.enabled && !tx && type === 'expense' && (
+          <>
+            {/* sur mobile, ouvre directement l'appareil photo */}
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onPhoto(e.target.files?.[0])} aria-label="Photo du ticket" />
+            {askConsent ? (
+              <AiConsent onAccepted={() => { setAskConsent(false); fileRef.current?.click(); }} onCancel={() => setAskConsent(false)} />
+            ) : (
+              <div className="scan-row">
+                <button type="button" className="btn ghost" onClick={scan} disabled={scanning}>{scanning ? 'Lecture du ticket…' : '📷 Scanner un ticket'}</button>
+                {scanNote && <p className="muted small" role="status">{scanNote}</p>}
+              </div>
+            )}
+          </>
+        )}
 
         <label className="field amount-field">
           <span>Montant</span>

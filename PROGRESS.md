@@ -108,4 +108,9 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   Module pur `src/settle.js` : parts égales / % / montants au centime près (plus forts restes), soldes (somme nulle),
   remboursements (≤ membres − 1). Payé par moi : opération pour ma part seulement. UI : section dans Comptes, page du groupe
   (« Sarah doit 42 € à Yass », « Marquer comme remboursé »). Seed : coloc à trois. 8 tests API/unitaires + 1 e2e.
-- [ ] **Tâche 16 — Fonctions IA (facultatives, avec l'API Claude)**
+- [x] **Tâche 16 — Fonctions IA (facultatives, avec l'API Claude)**
+  `@anthropic-ai/sdk`, actif seulement avec `ANTHROPIC_API_KEY` (modèle `ANTHROPIC_MODEL`, défaut `claude-sonnet-5-5`).
+  Ticket en photo : redimensionné à 1600 px côté client, structured outputs + revalidation Zod, formulaire prérempli jamais
+  enregistré, image non stockée. Assistant : boucle tool use avec 6 outils en lecture seule qui réutilisent les fonctions des
+  routes (extraites en `view()`), utilisateur imposé par la session, 20 questions/jour, consentement mémorisé.
+  7 tests API (SDK simulé : sans clé, Zod, isolation, limite, modèle) + 2 e2e (sans bouton IA ; ticket avec API simulée).
