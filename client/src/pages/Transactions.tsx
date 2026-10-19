@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { dayLabel, money } from '../format';
 import MonthPicker from '../components/MonthPicker';
 import TxRow from '../components/TxRow';
+import ImportModal from '../components/ImportModal';
 
 export default function Transactions() {
   const { month, version, accounts, categories } = useStore();
@@ -11,6 +12,7 @@ export default function Transactions() {
   const [q, setQ] = useState('');
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams({ month });
@@ -59,7 +61,10 @@ export default function Transactions() {
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
-        <button className="btn ghost" onClick={exportCsv}>Exporter en CSV</button>
+        <span className="filters-actions">
+          <button className="btn ghost" onClick={() => setImporting(true)}>Importer</button>
+          <button className="btn ghost" onClick={exportCsv}>Exporter en CSV</button>
+        </span>
       </div>
 
       <p className="totals">
@@ -83,6 +88,8 @@ export default function Transactions() {
           </section>
         ))
       )}
+
+      {importing && <ImportModal onClose={() => setImporting(false)} />}
     </div>
   );
 }

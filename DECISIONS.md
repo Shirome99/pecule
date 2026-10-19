@@ -43,3 +43,17 @@ ce compte ne change pas.
 ## 2026-10-19 — Validation des dates
 **Choix** : toutes les dates d'entrée passent par `isoDate()` qui refuse les dates impossibles (`2026-02-30`), et plus
 seulement le format.
+
+## 2026-10-19 — Import CSV
+**Choix** :
+- Détection des doublons côté client : on charge les opérations du compte cible sur la période du fichier
+  (nouveaux filtres `from` / `to` de `GET /api/transactions`). Libellé comparé sans tenir compte de la casse ni des espaces.
+  Deux lignes identiques *dans le fichier* ne sont pas des doublons (deux cafés le même jour, c'est possible).
+- Les virements de l'app sont exportés avec la catégorie « Virement » ; à l'import, ces lignes sont ignorées (elles
+  s'annulent deux à deux dans un seul compte). C'est ce qui permet au réimport de redonner exactement les mêmes totaux.
+- La catégorie proposée n'est modifiable qu'après import (dans la liste) : l'aperçu ne montre que 20 lignes, une
+  correction ligne à ligne n'aurait concerné qu'une partie du fichier.
+- Plus de 2000 lignes : refus avec un message clair (pas de découpage automatique en plusieurs transactions SQL).
+- Les tests du parseur tournent avec Playwright (sans navigateur), pour ne pas ajouter vitest au client.
+- `docs/exemple-releve.csv` : relevé fictif en Windows-1252 avec colonnes débit / crédit, pour essayer l'import.
+**Écarté** : parser côté serveur (demandé côté client), import OFX (hors périmètre).

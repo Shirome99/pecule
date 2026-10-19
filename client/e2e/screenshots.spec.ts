@@ -27,6 +27,11 @@ test('captures de tous les écrans', async ({ page }) => {
   await goTo(page, 'Opérations');
   await page.locator('.day').first().waitFor();
   await shot('05-operations');
+  await page.getByRole('button', { name: 'Importer' }).click();
+  await page.getByLabel('Fichier CSV de ta banque').setInputFiles('../docs/exemple-releve.csv');
+  await page.locator('.import-row').first().waitFor();
+  await modalShot('05b-import');
+  await page.getByRole('button', { name: 'Fermer' }).click();
 
   await goTo(page, 'Budgets');
   await page.locator('.budget').first().waitFor();
