@@ -1,5 +1,26 @@
 # Avancement
 
+## Résumé de fin de mission (2026-10-19)
+
+**Ce qui marche** : les 7 tâches de la feuille de route sont faites. On a maintenant : virements entre comptes (exclus
+des stats et des budgets), opérations récurrentes générées sans doublon, import CSV bancaire (encodage, séparateur,
+débit/crédit, doublons, catégorisation automatique), PWA installable avec un mode hors ligne, objectifs d'épargne, et
+une config de production (refus d'un `JWT_SECRET` faible, helmet, limitation de débit, CORS, Docker).
+Dernière vérification : **51 tests API** (vitest), `tsc -b` + build OK, **26 tests Playwright** (desktop 1366×900, mobile
+390×844, PWA sur le build de prod, et tests unitaires du parseur CSV), tous verts. Captures de chaque écran dans `docs/screenshots/`.
+
+**Ce qui est bloqué** : `docker compose up` n'a pas été exécuté, car Docker n'est pas installé sur cette machine
+(`docker: command not found`). Le `Dockerfile` et le `docker-compose.yml` sont écrits. L'image finale a été simulée en local :
+mode production, un seul port, front + API + PWA. Il reste à lancer `docker compose up --build` sur une machine qui a Docker.
+
+**3 prochaines évolutions recommandées** :
+1. **Découpage du bundle** (≈ 660 Ko) : charger Recharts et la modale d'import à la demande (`import()` + `React.lazy`).
+   Le premier affichage sur mobile et en 4G sera nettement plus rapide.
+2. **Règles de catégorisation éditables** : retenir les corrections de catégorie (« libellé contient X → catégorie Y »)
+   et les appliquer à l'import et à la saisie. On s'appuie sur la logique du mot significatif déjà en place.
+3. **Sauvegarde / restauration** : export complet en JSON (comptes, règles, objectifs, budgets) et sauvegarde
+   automatique de `money.db` dans le volume Docker. C'est indispensable avant d'y mettre de vraies données.
+
 ## Feuille de route
 
 - [x] **Tâche 0 — Socle : git + tests**
