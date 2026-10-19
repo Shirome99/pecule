@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { api, type Transaction } from '../api';
+import { api, type RuleSuggestion, type Transaction } from '../api';
 import { useStore } from '../store';
 import { today } from '../format';
 import Modal from './Modal';
 import { useUndoDelete } from '../useUndoDelete';
+import { useToast } from './Toast';
+import TagInput from './TagInput';
 
 type Props = { tx?: Transaction; onClose: () => void };
 type Kind = 'expense' | 'income' | 'transfer';
@@ -12,6 +14,8 @@ const KIND_LABELS: Record<Kind, string> = { expense: 'Dépense', income: 'Revenu
 export default function TransactionForm({ tx, onClose }: Props) {
   const { accounts, categories, refresh } = useStore();
   const undoDelete = useUndoDelete();
+  const toast = useToast();
+  const [tags, setTags] = useState<string[]>(tx?.tags ?? []);
   const [type, setType] = useState<Kind>(tx?.transfer_id ? 'transfer' : tx && tx.amount > 0 ? 'income' : 'expense');
   const [amount, setAmount] = useState(tx ? String(Math.abs(tx.amount)).replace('.', ',') : '');
   const [label, setLabel] = useState(tx?.label ?? '');
@@ -44,10 +48,12 @@ export default function TransactionForm({ tx, onClose }: Props) {
         else await api.post('/transfers', body);
       } else {
         const body = { type, amount: value, label, date, account_id: accountId, category_id: categoryId || null };
-        if (tx) await api.put(`/transactions/${tx.id}`, body);
+        let saved: { suggestion?: RuleSuggestion | null } = {};
+        if (tx) saved = await api.put(`/transactions/${tx.id}`, { ...body, tags });
         // récurrence : le serveur crée la règle et génère l'occurrence si la date est passée
         else if (repeat) await api.post('/recurring', { ...body, frequency: 'monthly', start_date: date });
-        else await api.post('/transactions', body);
+        else saved = await api.post('/transactions', { ...body, tags });
+        if (saved.suggestion) suggestRule(saved.suggestion);
       }
       refresh();
       onClose();
@@ -55,6 +61,19 @@ export default function TransactionForm({ tx, onClose }: Props) {
       setError((err as Error).message);
       setSaving(false);
     }
+  }
+
+  // même catégorie donnée à deux opérations semblables : proposer une règle
+  function suggestRule(s: RuleSuggestion) {
+    toast({
+      message: `Toujours classer « ${s.pattern} » en ${s.category_name} ?`, kind: 'action', duration: 8000,
+      action: {
+        label: 'Créer la règle',
+        onClick: () => api.post('/rules', { pattern: s.pattern, category_id: s.category_id })
+          .then(() => toast({ message: `Règle créée : « ${s.pattern} » → ${s.category_name}.`, kind: 'success', duration: 3000 }))
+          .catch((err: Error) => toast({ message: err.message, kind: 'error' })),
+      },
+    });
   }
 
   // pas de confirmation : le toast propose « Annuler » pendant 6 s
@@ -152,6 +171,8 @@ export default function TransactionForm({ tx, onClose }: Props) {
                 </select>
               </label>
             </div>
+
+            {!repeat && <TagInput value={tags} onChange={setTags} />}
           </>
         )}
 

@@ -99,6 +99,14 @@ export default function Settings() {
       </section>
 
       <section className="panel">
+        <div className="panel-head">
+          <h2>Règles de catégorisation</h2>
+          <Link to="/reglages/regles" className="link">Gérer</Link>
+        </div>
+        <p className="muted">Classe automatiquement les opérations dont le libellé contient un mot, comme « BASIC FIT » → Loisirs.</p>
+      </section>
+
+      <section className="panel">
         <h2>Mes données</h2>
         <p className="muted">Toutes tes opérations dans un fichier CSV, lisible par un tableur et réimportable dans Pécule.</p>
         <button className="btn ghost" onClick={exportCsv}>Télécharger l'export CSV</button>

@@ -87,6 +87,19 @@ export type Transaction = {
   category_name: string | null; category_color: string | null; category_icon: string | null; account_name: string;
   /** virement : identifiant commun aux deux lignes + compte d'en face */
   transfer_id: string | null; peer_account_id: number | null; peer_account_name: string | null;
+  /** tags normalisés, sans # */
+  tags: string[];
+};
+/** Proposée après avoir classé une opération : « Toujours classer "BASIC FIT" en Loisirs ? » */
+export type RuleSuggestion = { pattern: string; category_id: number; category_name: string };
+export type Rule = {
+  id: number; pattern: string; category_id: number; priority: number;
+  category_name: string; category_icon: string; category_color: string; category_kind: 'expense' | 'income';
+};
+export type Tag = { name: string; count: number; last_date: string };
+export type TagSummary = {
+  name: string; count: number; total: number; income: number; from: string; to: string;
+  byCategory: { id: number | null; name: string; color: string; icon: string; total: number }[];
 };
 export type Budget = { id: number; category_id: number; monthly_limit: number; name: string; color: string; icon: string; spent: number };
 export type Stats = {

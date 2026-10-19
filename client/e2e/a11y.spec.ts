@@ -5,6 +5,7 @@ import { loginDemo } from './helpers';
 const PAGES = [
   ['Aperçu', '/'], ['Opérations', '/transactions'], ['Budgets', '/budgets'], ['Comptes', '/comptes'],
   ['Abonnements', '/abonnements'], ['Patrimoine', '/patrimoine'], ['Réglages', '/reglages'],
+  ['Règles', '/reglages/regles'], ['Tag', '/tags/week-end-lyon'],
 ] as const;
 
 for (const theme of ['light', 'dark'] as const) {

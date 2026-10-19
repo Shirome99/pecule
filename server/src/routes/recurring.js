@@ -4,6 +4,7 @@ const { z } = require('zod');
 const { db } = require('../db');
 const { wrap, toCents, fromCents, isoDate, auth, owns, checkTxRefs } = require('../lib');
 const { generateRecurring, nextOccurrence, localToday } = require('../recurring');
+const { autoCategory } = require('../categorize');
 
 const router = express.Router();
 
@@ -48,9 +49,10 @@ router.post('/api/recurring', auth, wrap((req, res) => {
     if (!owns('accounts', r.to_account_id, req.userId)) return res.status(400).json({ error: 'Compte invalide' });
   }
   const cents = toCents(r.amount) * (r.type === 'income' ? 1 : -1);
+  const categoryId = transfer ? null : r.category_id || autoCategory(req.userId, r.label, cents);
   const { lastInsertRowid: id } = db.prepare(`INSERT INTO recurring
     (user_id, account_id, to_account_id, category_id, amount, label, frequency, day, start_date, end_date) VALUES (?,?,?,?,?,?,?,?,?,?)`)
-    .run(req.userId, r.account_id, transfer ? r.to_account_id : null, transfer ? null : r.category_id || null, cents,
+    .run(req.userId, r.account_id, transfer ? r.to_account_id : null, categoryId, cents,
       r.label, r.frequency, day, r.start_date, r.end_date || null);
   const generated = generateRecurring(req.userId);
   res.status(201).json({ id, generated });

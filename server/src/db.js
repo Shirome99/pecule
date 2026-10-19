@@ -137,6 +137,30 @@ CREATE TABLE IF NOT EXISTS goals (
 // premier lancement : date à laquelle le parcours d'accueil a été terminé ou passé
 addColumn('users', 'onboarded_at', 'TEXT');
 
+// règles de catégorisation (motif = texte contenu dans le libellé normalisé) et tags des opérations
+db.exec(`
+CREATE TABLE IF NOT EXISTS rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pattern TEXT NOT NULL,            -- normalisé comme les libellés (majuscules, sans accents ni chiffres)
+  category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  priority INTEGER NOT NULL DEFAULT 0, -- la plus haute gagne
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,               -- normalisé : minuscules, sans #, tirets à la place des espaces
+  UNIQUE(user_id, name)
+);
+CREATE TABLE IF NOT EXISTS transaction_tags (
+  transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+  tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (transaction_id, tag_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tx_tags_tag ON transaction_tags(tag_id);
+`);
+
 const DEFAULT_CATEGORIES = [
   ['Logement', 'expense', '#6366f1', '🏠'],
   ['Courses', 'expense', '#10b981', '🛒'],

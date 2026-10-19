@@ -83,7 +83,11 @@ sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écr
   vérifié après chaque build (`scripts/check-bundle.mjs`). Toast réutilisable + « Annuler » (réinsertion à l'identique, `POST /api/undo`)
   pour opérations, budgets, catégories. Parcours de premier lancement en 3 écrans, écran Réglages (thème, prénom, mot de passe, export),
   raccourcis N, /, ← →. axe : 0 violation grave sur 7 pages en clair et en sombre (contrastes de `--ink-2` et `--in` corrigés). 7 tests API + 9 e2e.
-- [ ] **Tâche 11 — Règles de catégorisation et tags**
+- [x] **Tâche 11 — Règles de catégorisation et tags**
+  Module pur `src/rules.js` (correspondance, priorité, suggestion) + `src/categorize.js` : règles appliquées à la saisie sans
+  catégorie, à l'import, aux récurrences et via « Appliquer » (jamais sur une catégorie choisie). Toast « Toujours classer… ? ».
+  Tags (`tags`, `transaction_tags`) : saisie avec autocomplétion, filtre dans Opérations, page de tag (total, période,
+  répartition). Écran Réglages › Règles. Seed : règle BASIC FIT et tag #week-end-lyon. 13 tests API/unitaires + 2 e2e.
 - [ ] **Tâche 12 — Comparaisons automatiques (insights)**
 - [ ] **Tâche 13 — Calendrier et vue annuelle**
 - [ ] **Tâche 14 — Récap mensuel imprimable**

@@ -64,6 +64,17 @@ for (const n of [2, 14]) {
   ins.run(uid, acc, cat['Logement'], -18900, `PRLV SEPA MMA IARD ${880000 + n}`, `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-15`);
 }
 
+// règle de catégorisation et un week-end tagué le mois dernier
+db.prepare('INSERT INTO rules (user_id, pattern, category_id, priority) VALUES (?,?,?,0)').run(uid, 'BASIC FIT', cat['Loisirs']);
+{
+  const dt = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const ym = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`;
+  const tagId = db.prepare('INSERT INTO tags (user_id, name) VALUES (?,?)').run(uid, 'week-end-lyon').lastInsertRowid;
+  const link = db.prepare('INSERT INTO transaction_tags (transaction_id, tag_id) VALUES (?,?)');
+  for (const [label, category, cents, day] of [['SNCF Paris Lyon', 'Transport', -8900, 13], ['Hôtel Bellecour', 'Loisirs', -14200, 14], ['Bouchon lyonnais', 'Restaurants', -6450, 14]])
+    link.run(ins.run(uid, acc, cat[category], cents, label, `${ym}-${day}`).lastInsertRowid, tagId);
+}
+
 // ---------- patrimoine : placements valorisés à la main et crédit immobilier ----------
 const { cashAt } = require('./wealth');
 const { iso, daysIn, addMonths, localToday } = require('./dates');

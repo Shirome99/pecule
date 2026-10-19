@@ -436,3 +436,15 @@ button.budget:hover { border-color: var(--ink-2); }
   .auth-side { padding: 2rem 1.5rem; gap: 2rem; }
   .auth-form { padding: 1.5rem 0 3rem; }
 }
+
+/* ---------- tags ---------- */
+.tag-input {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; min-height: 44px; padding: 0.3rem 0.5rem;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.tag-input:focus-within { outline: 2px solid var(--warn); outline-offset: 1px; }
+.tag-input input { flex: 1 1 8rem; min-width: 6rem; border: 0; background: none; padding: 0.4rem 0.3rem; min-height: 36px; }
+.tag-input input:focus-visible { outline: none; }
+.tag { display: inline-flex; align-items: center; gap: 0.1rem; padding: 0.15rem 0.2rem 0.15rem 0.6rem; border-radius: 999px; background: var(--wash); font-size: 0.85rem; font-weight: 500; }
+.tag .chip-x { width: 28px; height: 28px; }
+.tx-tag { color: var(--ink); font-weight: 500; }

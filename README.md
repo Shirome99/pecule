@@ -120,7 +120,7 @@ Les erreurs renvoient `{ error: "message en français" }`.
 | POST | `/api/undo` | `{ token }` : annule une suppression d'opération, de budget ou de catégorie (jeton renvoyé par `DELETE`, valable 60 s) |
 | GET/POST/PUT/DELETE | `/api/accounts` | Comptes ; `balance` = valeur actuelle selon la famille (`family`), + `invested`, `gain`, `gain_pct` pour un placement |
 | GET/POST/DELETE | `/api/categories` | Catégories (11 créées à l'inscription) |
-| GET/POST/PUT/DELETE | `/api/transactions` | Opérations ; filtres `month`, `from`, `to`, `account_id`, `category_id`, `q`, `limit` (max 2000). Modifier ou supprimer une ligne de virement agit sur les deux |
+| GET/POST/PUT/DELETE | `/api/transactions` | Opérations ; filtres `month`, `from`, `to`, `account_id`, `category_id`, `tag`, `q`, `limit` (max 2000). `tags: ["vacances"]` à l'écriture ; sans catégorie, les règles en donnent une ; la réponse peut contenir une `suggestion` de règle. Modifier ou supprimer une ligne de virement agit sur les deux |
 | POST | `/api/transactions/bulk` | Import : `{ account_id, rows: [{ date, label, amount, category_id? }] }`, montants signés, 2000 lignes max, tout ou rien |
 | POST | `/api/transfers` | Virement `{ from_account_id, to_account_id, amount, date, label? }` |
 | PUT/DELETE | `/api/transfers/:transfer_id` | Modifier / supprimer un virement (les deux lignes) |
@@ -139,6 +139,9 @@ Les erreurs renvoient `{ error: "message en français" }`.
 | GET/PUT | `/api/accounts/:id/loan` | Paramètres d'un crédit `{ principal, annual_rate, duration_months, first_payment_date, insurance_monthly? }` + mensualité, fin, coût |
 | GET | `/api/loans/:id/schedule` | Tableau d'amortissement |
 | GET | `/api/networth?months=24` | Fin de chaque mois : liquidités, placements, dettes, patrimoine net ; variations 1 et 12 mois |
+| GET/POST/PUT/DELETE | `/api/rules` | Règles de catégorisation `{ pattern, category_id, priority? }` (motif normalisé comme les libellés) |
+| POST | `/api/rules/apply` | Classe les opérations sans catégorie → `{ classified }` |
+| GET | `/api/tags` · `/api/tags/:name` | Tags utilisés (autocomplétion) ; bilan d'un tag : total, période, répartition par catégorie |
 | GET | `/api/export.csv` | Export de toutes les opérations (format Excel FR, virements marqués « Virement ») |
 
 ## Suivi

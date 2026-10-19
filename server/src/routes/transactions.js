@@ -5,6 +5,8 @@ const { db } = require('../db');
 const { wrap, toCents, fromCents, isoDate, auth, owns, checkTxRefs } = require('../lib');
 const { getTransferLines, saveTransfer } = require('../transfers');
 const { remember } = require('../undo');
+const { rulesOf, autoCategory, ruleSuggestion } = require('../categorize');
+const { normalizeTags } = require('../tags');
 
 const router = express.Router();
 
@@ -15,10 +17,27 @@ const txSchema = z.object({
   type: z.enum(['expense', 'income']),
   label: z.string().trim().min(1, 'Libellé requis'),
   date: isoDate('Date invalide'),
+  tags: z.array(z.string().max(40, 'Tag trop long (40 caractères max)'), { error: 'Tags : une liste de mots' })
+    .max(10, '10 tags maximum par opération').optional(),
 });
 
+/** Remplace les tags d'une opération (créés au besoin, noms normalisés). */
+function setTags(userId, txId, names) {
+  const tags = normalizeTags(names);
+  const insTag = db.prepare('INSERT OR IGNORE INTO tags (user_id, name) VALUES (?,?)');
+  const tagId = db.prepare('SELECT id FROM tags WHERE user_id = ? AND name = ?');
+  const link = db.prepare('INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id) VALUES (?,?)');
+  db.transaction(() => {
+    db.prepare('DELETE FROM transaction_tags WHERE transaction_id = ?').run(txId);
+    for (const name of tags) {
+      insTag.run(userId, name);
+      link.run(txId, tagId.get(userId, name).id);
+    }
+  })();
+}
+
 router.get('/api/transactions', auth, wrap((req, res) => {
-  const { month, account_id, category_id, q, limit, from, to } = req.query;
+  const { month, account_id, category_id, q, limit, from, to, tag } = req.query;
   const where = ['t.user_id = ?'];
   const params = [req.userId];
   if (month) { where.push("substr(t.date,1,7) = ?"); params.push(month); }
@@ -29,9 +48,14 @@ router.get('/api/transactions', auth, wrap((req, res) => {
   else where.push('(t.transfer_id IS NULL OR t.amount < 0)');
   if (category_id) { where.push('t.category_id = ?'); params.push(category_id); }
   if (q) { where.push('t.label LIKE ?'); params.push(`%${q}%`); }
+  if (tag) {
+    where.push('t.id IN (SELECT tt.transaction_id FROM transaction_tags tt JOIN tags g ON g.id = tt.tag_id WHERE g.user_id = ? AND g.name = ?)');
+    params.push(req.userId, String(tag));
+  }
   const rows = db.prepare(`
     SELECT t.*, c.name AS category_name, c.color AS category_color, c.icon AS category_icon, a.name AS account_name,
-      p.account_id AS peer_account_id, pa.name AS peer_account_name
+      p.account_id AS peer_account_id, pa.name AS peer_account_name,
+      (SELECT group_concat(g.name, ' ') FROM transaction_tags tt JOIN tags g ON g.id = tt.tag_id WHERE tt.transaction_id = t.id) AS tag_list
     FROM transactions t
     LEFT JOIN categories c ON c.id = t.category_id
     JOIN accounts a ON a.id = t.account_id
@@ -40,7 +64,7 @@ router.get('/api/transactions', auth, wrap((req, res) => {
     WHERE ${where.join(' AND ')}
     ORDER BY t.date DESC, t.id DESC
     LIMIT ?`).all(...params, Math.min(Number(limit) || 500, 2000));
-  res.json(rows.map((r) => ({ ...r, amount: fromCents(r.amount) })));
+  res.json(rows.map(({ tag_list, ...r }) => ({ ...r, amount: fromCents(r.amount), tags: tag_list ? tag_list.split(' ').sort() : [] })));
 }));
 
 router.post('/api/transactions', auth, wrap((req, res) => {
@@ -48,10 +72,14 @@ router.post('/api/transactions', auth, wrap((req, res) => {
   const err = checkTxRefs(t, req.userId);
   if (err) return res.status(400).json({ error: err });
   const cents = toCents(t.amount) * (t.type === 'expense' ? -1 : 1);
-  const { lastInsertRowid } = db.prepare(
+  // sans catégorie choisie, les règles de l'utilisateur en proposent une
+  const categoryId = t.category_id || autoCategory(req.userId, t.label, cents);
+  const { lastInsertRowid: id } = db.prepare(
     'INSERT INTO transactions (user_id, account_id, category_id, amount, label, date) VALUES (?,?,?,?,?,?)'
-  ).run(req.userId, t.account_id, t.category_id || null, cents, t.label, t.date);
-  res.status(201).json({ id: lastInsertRowid });
+  ).run(req.userId, t.account_id, categoryId, cents, t.label, t.date);
+  if (t.tags) setTags(req.userId, id, t.tags);
+  // catégorie choisie à la main : proposer d'en faire une règle si une opération semblable a la même
+  res.status(201).json({ id, category_id: categoryId, suggestion: t.category_id ? ruleSuggestion(req.userId, id) : null });
 }));
 
 router.put('/api/transactions/:id', auth, wrap((req, res) => {
@@ -77,7 +105,9 @@ router.put('/api/transactions/:id', auth, wrap((req, res) => {
   db.prepare(`UPDATE transactions SET account_id=?, category_id=?, amount=?, label=?, date=?,
     recurring_id = CASE WHEN date = ? THEN recurring_id ELSE NULL END WHERE id=?`)
     .run(t.account_id, t.category_id || null, cents, t.label, t.date, t.date, req.params.id);
-  res.json({ ok: true });
+  if (t.tags) setTags(req.userId, current.id, t.tags);
+  const recategorized = t.category_id && t.category_id !== current.category_id;
+  res.json({ ok: true, suggestion: recategorized ? ruleSuggestion(req.userId, current.id) : null });
 }));
 
 router.delete('/api/transactions/:id', auth, wrap((req, res) => {
@@ -87,7 +117,10 @@ router.delete('/api/transactions/:id', auth, wrap((req, res) => {
   const lines = transfer_id
     ? db.prepare('SELECT * FROM transactions WHERE transfer_id = ? AND user_id = ?').all(transfer_id, req.userId)
     : db.prepare('SELECT * FROM transactions WHERE id = ?').all(req.params.id);
-  const undo = remember(req.userId, { transactions: lines });
+  const undo = remember(req.userId, {
+    transactions: lines,
+    transaction_tags: db.prepare(`SELECT * FROM transaction_tags WHERE transaction_id IN (${lines.map(() => '?').join(',')})`).all(...lines.map((l) => l.id)),
+  });
   if (transfer_id) db.prepare('DELETE FROM transactions WHERE transfer_id = ? AND user_id = ?').run(transfer_id, req.userId);
   else db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
   res.json({ ok: true, undo });
@@ -111,7 +144,12 @@ router.post('/api/transactions/bulk', auth, wrap((req, res) => {
   if (cats.some((id) => !owns('categories', id, req.userId))) return res.status(400).json({ error: 'Catégorie invalide' });
   const ins = db.prepare('INSERT INTO transactions (user_id, account_id, category_id, amount, label, date) VALUES (?,?,?,?,?,?)');
   db.transaction(() => {
-    for (const r of rows) ins.run(req.userId, account_id, r.category_id || null, toCents(r.amount), r.label, r.date);
+    // lignes sans catégorie : les règles de l'utilisateur s'appliquent
+    const rules = rulesOf(req.userId);
+    for (const r of rows) {
+      const cents = toCents(r.amount);
+      ins.run(req.userId, account_id, r.category_id || autoCategory(req.userId, r.label, cents, rules), cents, r.label, r.date);
+    }
   })();
   res.status(201).json({ inserted: rows.length });
 }));

@@ -27,7 +27,7 @@ router.post('/api/categories', auth, wrap((req, res) => {
 
 router.delete('/api/categories/:id', auth, wrap((req, res) => {
   if (!owns('categories', req.params.id, req.userId)) return res.status(404).json({ error: 'Catégorie introuvable' });
-  // annulation : la catégorie, ses budgets (supprimés en cascade) et le lien vers ses opérations et récurrences
+  // annulation : la catégorie, ses budgets et ses règles (supprimés en cascade) et le lien vers ses opérations et récurrences
   const id = Number(req.params.id);
   const ids = (table) => db.prepare(`SELECT id FROM ${table} WHERE category_id = ? AND user_id = ?`).all(id, req.userId).map((r) => r.id);
   const relink = (table, list) => ({
@@ -37,6 +37,7 @@ router.delete('/api/categories/:id', auth, wrap((req, res) => {
   const undo = remember(req.userId, {
     categories: db.prepare('SELECT * FROM categories WHERE id = ?').all(id),
     budgets: db.prepare('SELECT * FROM budgets WHERE category_id = ?').all(id),
+    rules: db.prepare('SELECT * FROM rules WHERE category_id = ?').all(id),
   }, [relink('transactions', ids('transactions')), relink('recurring', ids('recurring'))]);
   db.prepare('DELETE FROM categories WHERE id = ?').run(id);
   res.json({ ok: true, undo });

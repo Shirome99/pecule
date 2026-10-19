@@ -71,3 +71,16 @@ export const familyOf = (type: string): keyof typeof FAMILIES =>
   (Object.keys(FAMILIES) as (keyof typeof FAMILIES)[]).find((f) => (FAMILIES[f].types as readonly string[]).includes(type)) ?? 'liquid';
 
 export const percent = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
+
+/** « du 2 au 16 août » · « du 28 juillet au 3 août » · « le 5 mars » (année ajoutée si ce n'est pas l'année en cours). */
+export function periodLabel(from: string, to: string) {
+  const fmt = (s: string, opts: Intl.DateTimeFormatOptions) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('fr-FR', opts);
+  };
+  const year = to.slice(0, 4) !== String(new Date().getFullYear()) ? ' ' + to.slice(0, 4) : '';
+  if (from === to) return `le ${fmt(from, { day: 'numeric', month: 'long' })}${year}`;
+  const sameMonth = from.slice(0, 7) === to.slice(0, 7);
+  const start = sameMonth ? fmt(from, { day: 'numeric' }) : fmt(from, { day: 'numeric', month: 'long', ...(from.slice(0, 4) !== to.slice(0, 4) ? { year: 'numeric' } : {}) });
+  return `du ${start} au ${fmt(to, { day: 'numeric', month: 'long' })}${year}`;
+}

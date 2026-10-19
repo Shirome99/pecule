@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { api, downloadExport, type Transaction } from '../api';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { api, downloadExport, type Tag, type Transaction } from '../api';
 import { useStore } from '../store';
 import { dayLabel, money } from '../format';
 import MonthPicker from '../components/MonthPicker';
@@ -14,6 +14,11 @@ export default function Transactions() {
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [importing, setImporting] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]);
+  // filtre par tag dans l'URL (?tag=…) : lien depuis la page d'un tag
+  const [params, setParams] = useSearchParams();
+  const tag = params.get('tag') ?? '';
+  const setTag = (t: string) => setParams(t ? { tag: t } : {}, { replace: true });
   // raccourci « / » depuis une autre page : le curseur arrive dans la recherche
   const focusSearch = !!(useLocation().state as { focusSearch?: boolean } | null)?.focusSearch;
 
@@ -22,9 +27,12 @@ export default function Transactions() {
     if (q) p.set('q', q);
     if (accountId) p.set('account_id', accountId);
     if (categoryId) p.set('category_id', categoryId);
+    if (tag) p.set('tag', tag);
     const t = setTimeout(() => api.get<Transaction[]>(`/transactions?${p}`).then(setTxs), q ? 250 : 0);
     return () => clearTimeout(t);
-  }, [month, version, q, accountId, categoryId]);
+  }, [month, version, q, accountId, categoryId, tag]);
+
+  useEffect(() => { api.get<Tag[]>('/tags').then(setTags).catch(() => {}); }, [version]);
 
   const groups = useMemo(() => {
     const m = new Map<string, Transaction[]>();
@@ -56,6 +64,13 @@ export default function Transactions() {
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
+        {(tags.length > 0 || tag) && (
+          <select value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Tag">
+            <option value="">Tous les tags</option>
+            {tag && !tags.some((t) => t.name === tag) && <option value={tag}>#{tag}</option>}
+            {tags.map((t) => <option key={t.name} value={t.name}>#{t.name}</option>)}
+          </select>
+        )}
         <span className="filters-actions">
           <button className="btn ghost" onClick={() => setImporting(true)}>Importer</button>
           <button className="btn ghost" onClick={downloadExport}>Exporter en CSV</button>
@@ -65,6 +80,7 @@ export default function Transactions() {
       <p className="totals">
         <span>Entrées <strong className="in">{money(totalIn)}</strong></span>
         <span>Sorties <strong className="out">{money(totalOut)}</strong></span>
+        {tag && <Link to={`/tags/${encodeURIComponent(tag)}`} className="link">Bilan de #{tag}, tous mois confondus</Link>}
       </p>
 
       {txs === null ? <p className="muted">Chargement…</p> : groups.length === 0 ? (

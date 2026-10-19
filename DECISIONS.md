@@ -171,3 +171,20 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
   sélecteur de mois ; « / » hors de Opérations y mène et place le curseur dans la recherche.
 - Contrastes (axe) : `--ink-2` #5b6f6d → #536664 et `--in` #2f7d5b → #2a7353 en clair (4,3:1 et 4,4:1 → ≥ 4,9:1).
 **Écarté** : un service worker / IndexedDB pour l'annulation hors ligne.
+
+## 2026-10-19 — Règles et tags (tâche 11)
+**Choix** :
+- Départage entre règles : priorité la plus haute (0 à 100), puis motif le plus long (le plus précis), puis la plus ancienne.
+  Une règle ne s'applique qu'aux opérations du même sens que sa catégorie (une règle « Loisirs » ne classe pas un revenu).
+- Les règles s'appliquent quand **aucune** catégorie n'est donnée : création d'opération, lignes d'import sans catégorie
+  (la catégorie devinée par le client à l'import reste prioritaire), création d'une récurrence. Une modification qui retire
+  la catégorie ne la remplace pas (choix explicite de l'utilisateur).
+- Suggestion : calculée par le serveur quand l'utilisateur **choisit** une catégorie (création ou changement) ; motif = début
+  commun, mot par mot (3 mots max, 3 lettres min), avec la plus proche opération de la même catégorie. Rien si une règle
+  reconnaît déjà le libellé. Pas de mémoire des suggestions refusées (le toast disparaît seul).
+- Tags : normalisés (minuscules, sans #, tirets à la place des espaces, 40 caractères, 10 par opération), pas sur les
+  virements. Bilan d'un tag = dépenses (positives), revenus à part, sur toute la période (pas seulement le mois affiché).
+  Un tag sans opération n'est plus proposé (la ligne `tags` reste, sans effet).
+- Saisie : `<datalist>` natif pour l'autocomplétion (pas de librairie), Entrée / virgule / espace valide un tag.
+- Suppression d'une catégorie : ses règles reviennent aussi avec « Annuler » ; suppression d'une opération : ses tags aussi.
+**Écarté** : expressions régulières dans les motifs (risque d'erreur et de lenteur, « contient » suffit) ; tags hiérarchiques.

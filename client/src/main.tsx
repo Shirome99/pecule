@@ -18,6 +18,8 @@ const Accounts = lazy(() => import('./pages/Accounts'));
 const Subscriptions = lazy(() => import('./pages/Subscriptions'));
 const Networth = lazy(() => import('./pages/Networth'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Rules = lazy(() => import('./pages/Rules'));
+const TagPage = lazy(() => import('./pages/TagPage'));
 
 applyTheme();
 
@@ -35,6 +37,8 @@ function App() {
         <Route path="abonnements" element={<Subscriptions />} />
         <Route path="patrimoine" element={<Networth />} />
         <Route path="reglages" element={<Settings />} />
+        <Route path="reglages/regles" element={<Rules />} />
+        <Route path="tags/:name" element={<TagPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
