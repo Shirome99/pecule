@@ -56,4 +56,13 @@ export type Stats = {
   month: string; income: number; expenses: number; net: number; balance: number;
   byCategory: { id: number | null; name: string; color: string; icon: string; total: number }[];
   trend: { month: string; income: number; expenses: number }[];
+  /** récurrences du mois pas encore passées (montant signé) */
+  upcoming: number; upcoming_count: number;
+};
+export type Frequency = 'monthly' | 'weekly' | 'yearly';
+export type Recurring = {
+  id: number; account_id: number; category_id: number | null; amount: number; label: string;
+  frequency: Frequency; day: number; start_date: string; end_date: string | null; last_generated: string | null;
+  paused: boolean; next_date: string | null;
+  account_name: string; category_name: string | null; category_color: string | null; category_icon: string | null;
 };

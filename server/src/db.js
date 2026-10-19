@@ -63,6 +63,28 @@ function addColumn(table, column, definition) {
 addColumn('transactions', 'transfer_id', 'TEXT');
 db.exec('CREATE INDEX IF NOT EXISTS idx_tx_transfer ON transactions(transfer_id)');
 
+// opérations récurrentes : une occurrence = une ligne transactions avec recurring_id
+db.exec(`
+CREATE TABLE IF NOT EXISTS recurring (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+  amount INTEGER NOT NULL,          -- centimes, signé comme une opération
+  label TEXT NOT NULL,
+  frequency TEXT NOT NULL CHECK (frequency IN ('monthly','weekly','yearly')),
+  day INTEGER NOT NULL,             -- jour du mois (monthly, yearly) ou de la semaine 1 = lundi … 7 = dimanche (weekly)
+  start_date TEXT NOT NULL,         -- YYYY-MM-DD ; pour yearly, donne aussi le mois
+  end_date TEXT,
+  last_generated TEXT,              -- date jusqu'à laquelle les occurrences ont été générées
+  paused INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+addColumn('transactions', 'recurring_id', 'INTEGER REFERENCES recurring(id) ON DELETE SET NULL');
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tx_recurring ON transactions(recurring_id, date)
+  WHERE recurring_id IS NOT NULL`);
+
 const DEFAULT_CATEGORIES = [
   ['Logement', 'expense', '#6366f1', '🏠'],
   ['Courses', 'expense', '#10b981', '🛒'],

@@ -157,6 +157,17 @@ button, input, select { font: inherit; color: inherit; }
 .day-head { display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 600; padding-bottom: 0.4rem; border-bottom: 1px solid var(--line); margin-bottom: 0.25rem; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); padding: 2rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
 
+/* ---------- récurrences ---------- */
+.hero-upcoming { color: var(--ink-2); font-size: 0.95rem; border-top: 1px solid var(--line); padding-top: 0.75rem; }
+.hero-upcoming strong { color: var(--ink); }
+.hero-upcoming strong.in { color: var(--in); }
+.rec-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rec-row { display: flex; align-items: center; gap: 0.85rem; padding: 0.65rem 0; }
+.rec-row + .rec-row { border-top: 1px solid var(--line); }
+.rec-row.paused .tx-main, .rec-row.paused .tx-amount, .rec-row.paused .tx-icon { opacity: 0.55; }
+.rec-actions { display: flex; gap: 0.4rem; }
+.rec-actions .btn { min-height: 44px; padding: 0.5rem 0.8rem; font-size: 0.875rem; }
+
 /* ---------- budgets ---------- */
 .budget-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.85rem; }
 .budget-list.compact { grid-template-columns: 1fr; gap: 1rem; }
@@ -204,6 +215,8 @@ button.budget:hover { border-color: var(--ink-2); }
 .amount-input:focus-within { outline: 2px solid var(--warn); outline-offset: 1px; }
 .amount-input input:focus-visible { outline: none; }
 .amount-field .amount-input input { font-size: 1.75rem; padding: 0.5rem 0.8rem; }
+.check { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; cursor: pointer; font-weight: 500; }
+.check input { width: 20px; height: 20px; accent-color: var(--ink); margin: 0; }
 .form-error { color: var(--out); font-size: 0.9rem; font-weight: 500; }
 .form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem; }
 .form-actions .btn { align-self: auto; }
@@ -262,6 +275,9 @@ button.budget:hover { border-color: var(--ink-2); }
   .legend { grid-template-columns: 1fr 1fr; }
   .day, .panel { padding: 0.85rem 1rem; }
   .filters .btn { margin-left: 0; }
+  .icon-btn { width: 44px; height: 44px; }
+  .rec-row { flex-wrap: wrap; }
+  .rec-actions { flex-basis: 100%; justify-content: flex-end; }
   .filters select { flex: 1 1 140px; }
   .modal-backdrop { place-items: end stretch; padding: 0; }
   .modal { width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }

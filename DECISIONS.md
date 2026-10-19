@@ -26,3 +26,20 @@ avec un filtre de compte, elle renvoie la ligne de ce compte et elle compte alor
 **Choix** : la ligne restante sur l'autre compte devient une opération simple (`transfer_id = NULL`) pour que le solde de
 ce compte ne change pas.
 **Écarté** : supprimer aussi la ligne d'en face (modifierait silencieusement le solde d'un compte conservé).
+
+## 2026-10-19 — Opérations récurrentes
+**Choix** :
+- Fréquences `monthly` / `weekly` / `yearly` ; `day` = jour du mois (ramené au dernier jour si besoin, ex. 31 → 28 février)
+  ou jour de la semaine (1 = lundi … 7 = dimanche). En annuel, le mois est celui de la date de début.
+- Idempotence double : index unique partiel `(recurring_id, date)` + `INSERT OR IGNORE`, et `last_generated` pour ne
+  jamais recréer une occurrence que l'utilisateur a supprimée.
+- Mise en pause : à la reprise, la période de pause n'est pas rattrapée (`last_generated` = aujourd'hui).
+- Supprimer une récurrence garde les opérations déjà générées. Modifier la date d'une occurrence la détache de sa règle.
+- « À venir ce mois-ci » = somme **signée** (revenus − dépenses) des occurrences futures du mois affiché.
+- L'UI ne propose que « Répéter chaque mois » (comme demandé) ; l'API accepte déjà les autres fréquences.
+- La date du jour est celle du serveur (heure locale).
+**Écarté** : un cron côté serveur (inutile pour une app perso : la génération au login et à l'ouverture de l'Aperçu suffit).
+
+## 2026-10-19 — Validation des dates
+**Choix** : toutes les dates d'entrée passent par `isoDate()` qui refuse les dates impossibles (`2026-02-30`), et plus
+seulement le format.

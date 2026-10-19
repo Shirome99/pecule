@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
-import { api, type Account, type AccountType } from '../api';
+import { useEffect, useState, type FormEvent } from 'react';
+import { api, type Account, type AccountType, type Recurring } from '../api';
 import { useStore } from '../store';
-import { ACCOUNT_TYPES, money } from '../format';
+import { ACCOUNT_TYPES, frequencyLabel, money, shortDate, signed } from '../format';
 import Modal from '../components/Modal';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316', '#0ea5e9', '#6b7280'];
@@ -43,6 +43,8 @@ export default function Accounts() {
         <button className="btn ghost" onClick={() => setEditing('new')}>+ Ajouter un compte</button>
       </section>
 
+      <RecurringSection />
+
       <section className="panel">
         <div className="panel-head">
           <h2>Catégories</h2>
@@ -66,6 +68,57 @@ export default function Accounts() {
       {editing && <AccountForm account={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
       {newCat && <CategoryForm onClose={() => setNewCat(false)} />}
     </div>
+  );
+}
+
+function RecurringSection() {
+  const { version, refresh } = useStore();
+  const [items, setItems] = useState<Recurring[] | null>(null);
+
+  useEffect(() => {
+    api.get<Recurring[]>('/recurring').then(setItems).catch(() => setItems([]));
+  }, [version]);
+
+  async function togglePause(r: Recurring) {
+    await api.put(`/recurring/${r.id}`, { paused: !r.paused });
+    refresh();
+  }
+
+  async function remove(r: Recurring) {
+    if (!confirm(`Arrêter « ${r.label} » ? Les opérations déjà passées sont conservées.`)) return;
+    await api.del(`/recurring/${r.id}`);
+    refresh();
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-head"><h2>Opérations récurrentes</h2></div>
+      {items === null ? <p className="muted">Chargement…</p> : items.length === 0 ? (
+        <p className="muted">Aucune pour l'instant. Coche « Répéter chaque mois » en ajoutant une opération : loyer, salaire, abonnements…</p>
+      ) : (
+        <ul className="rec-list">
+          {items.map((r) => (
+            <li key={r.id} className={`rec-row ${r.paused ? 'paused' : ''}`}>
+              <span className="tx-icon" style={{ background: `${r.category_color ?? '#9ca3af'}22`, color: r.category_color ?? '#6b7280' }} aria-hidden>
+                {r.category_icon ?? '•'}
+              </span>
+              <span className="tx-main">
+                <span className="tx-label">{r.label}</span>
+                <span className="tx-meta">
+                  {frequencyLabel(r.frequency, r.day, r.start_date)} · {r.account_name}
+                  {r.paused ? ' · En pause' : r.next_date && ` · prochaine le ${shortDate(r.next_date)}`}
+                </span>
+              </span>
+              <span className={`tx-amount ${r.amount > 0 ? 'in' : ''}`}>{signed(r.amount)}</span>
+              <span className="rec-actions">
+                <button className="btn ghost" onClick={() => togglePause(r)}>{r.paused ? 'Reprendre' : 'Mettre en pause'}</button>
+                <button className="btn ghost danger" onClick={() => remove(r)} aria-label={`Supprimer ${r.label}`}>Supprimer</button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

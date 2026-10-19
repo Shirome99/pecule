@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const { z } = require('zod');
 const { db, seedUser } = require('./db');
+const { generateRecurring, upcomingInMonth, nextOccurrence, localToday } = require('./recurring');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const PORT = process.env.PORT || 4000;
@@ -23,6 +24,9 @@ const wrap = (fn) => (req, res) => {
   }
 };
 const toCents = (n) => Math.round(Number(n) * 100);
+// date réelle au format YYYY-MM-DD (refuse 2026-02-30)
+const isoDate = (msg) => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, msg)
+  .refine((s) => { const d = new Date(`${s}T00:00:00Z`); return !isNaN(d) && d.toISOString().startsWith(s); }, msg);
 const fromCents = (c) => c / 100;
 const sign = (u) => jwt.sign({ id: u.id }, JWT_SECRET, { expiresIn: '30d' });
 const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, currency: u.currency });
@@ -73,6 +77,7 @@ app.post('/api/auth/login', wrap((req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user || !bcrypt.compareSync(password, user.password_hash))
     return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  generateRecurring(user.id);
   res.json({ token: sign(user), user: publicUser(user) });
 }));
 
@@ -158,7 +163,7 @@ const txSchema = z.object({
   amount: z.coerce.number().positive('Le montant doit être positif'),
   type: z.enum(['expense', 'income']),
   label: z.string().trim().min(1, 'Libellé requis'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+  date: isoDate('Date invalide'),
 });
 
 function checkTxRefs(t, userId) {
@@ -221,8 +226,10 @@ app.put('/api/transactions/:id', auth, wrap((req, res) => {
     return res.json({ ok: true });
   }
   const cents = toCents(t.amount) * (t.type === 'expense' ? -1 : 1);
-  db.prepare('UPDATE transactions SET account_id=?, category_id=?, amount=?, label=?, date=? WHERE id=?')
-    .run(t.account_id, t.category_id || null, cents, t.label, t.date, req.params.id);
+  // une occurrence récurrente déplacée à une autre date n'est plus rattachée à sa règle
+  db.prepare(`UPDATE transactions SET account_id=?, category_id=?, amount=?, label=?, date=?,
+    recurring_id = CASE WHEN date = ? THEN recurring_id ELSE NULL END WHERE id=?`)
+    .run(t.account_id, t.category_id || null, cents, t.label, t.date, t.date, req.params.id);
   res.json({ ok: true });
 }));
 
@@ -239,7 +246,7 @@ const transferSchema = z.object({
   from_account_id: z.coerce.number({ error: 'Choisis le compte de départ' }).int(),
   to_account_id: z.coerce.number({ error: "Choisis le compte d'arrivée" }).int(),
   amount: z.coerce.number().positive('Le montant doit être positif'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+  date: isoDate('Date invalide'),
   label: z.string().trim().optional(),
 });
 
@@ -294,6 +301,63 @@ app.delete('/api/transfers/:transferId', auth, wrap((req, res) => {
   res.json({ ok: true });
 }));
 
+// ---------- opérations récurrentes ----------
+const recurringSchema = z.object({
+  account_id: z.coerce.number().int(),
+  category_id: z.coerce.number().int().nullable().optional(),
+  amount: z.coerce.number().positive('Le montant doit être positif'),
+  type: z.enum(['expense', 'income']),
+  label: z.string().trim().min(1, 'Libellé requis'),
+  frequency: z.enum(['monthly', 'weekly', 'yearly'], { error: 'Fréquence : monthly, weekly ou yearly' }).default('monthly'),
+  day: z.coerce.number().int().min(1).max(31).optional(),
+  start_date: isoDate('Date de début invalide'),
+  end_date: isoDate('Date de fin invalide').nullable().optional(),
+});
+
+const recurringOut = (r) => ({ ...r, amount: fromCents(r.amount), paused: !!r.paused, next_date: r.paused ? null : nextOccurrence(r) });
+
+app.get('/api/recurring', auth, wrap((req, res) => {
+  const rows = db.prepare(`
+    SELECT r.*, a.name AS account_name, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
+    FROM recurring r JOIN accounts a ON a.id = r.account_id LEFT JOIN categories c ON c.id = r.category_id
+    WHERE r.user_id = ? ORDER BY r.paused, r.label`).all(req.userId);
+  res.json(rows.map(recurringOut));
+}));
+
+app.post('/api/recurring', auth, wrap((req, res) => {
+  const r = recurringSchema.parse(req.body);
+  const err = checkTxRefs(r, req.userId);
+  if (err) return res.status(400).json({ error: err });
+  if (r.end_date && r.end_date < r.start_date) return res.status(400).json({ error: 'La date de fin doit être après la date de début' });
+  const start = new Date(`${r.start_date}T00:00:00Z`);
+  // par défaut : le jour de la date de début (jour du mois, ou jour de la semaine en hebdomadaire)
+  const day = r.day ?? (r.frequency === 'weekly' ? start.getUTCDay() || 7 : start.getUTCDate());
+  if (r.frequency === 'weekly' && day > 7) return res.status(400).json({ error: 'Jour de la semaine : de 1 (lundi) à 7 (dimanche)' });
+  const cents = toCents(r.amount) * (r.type === 'expense' ? -1 : 1);
+  const { lastInsertRowid: id } = db.prepare(`INSERT INTO recurring
+    (user_id, account_id, category_id, amount, label, frequency, day, start_date, end_date) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run(req.userId, r.account_id, r.category_id || null, cents, r.label, r.frequency, day, r.start_date, r.end_date || null);
+  const generated = generateRecurring(req.userId);
+  res.status(201).json({ id, generated });
+}));
+
+app.put('/api/recurring/:id', auth, wrap((req, res) => {
+  if (!owns('recurring', req.params.id, req.userId)) return res.status(404).json({ error: 'Opération récurrente introuvable' });
+  const { paused } = z.object({ paused: z.boolean({ error: 'Indique paused : true ou false' }) }).parse(req.body);
+  // à la reprise, la période de pause n'est pas rattrapée
+  if (paused) db.prepare('UPDATE recurring SET paused = 1 WHERE id = ?').run(req.params.id);
+  else db.prepare('UPDATE recurring SET paused = 0, last_generated = MAX(COALESCE(last_generated, ?), ?) WHERE id = ?')
+    .run(localToday(), localToday(), req.params.id);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/recurring/:id', auth, wrap((req, res) => {
+  if (!owns('recurring', req.params.id, req.userId)) return res.status(404).json({ error: 'Opération récurrente introuvable' });
+  // les opérations déjà générées restent (recurring_id passe à NULL)
+  db.prepare('DELETE FROM recurring WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+}));
+
 // ---------- budgets ----------
 app.get('/api/budgets', auth, wrap((req, res) => {
   const month = req.query.month || new Date().toISOString().slice(0, 7);
@@ -329,6 +393,8 @@ app.delete('/api/budgets/:id', auth, wrap((req, res) => {
 app.get('/api/stats', auth, wrap((req, res) => {
   const month = req.query.month || new Date().toISOString().slice(0, 7);
   const uid = req.userId;
+  generateRecurring(uid);
+  const upcoming = upcomingInMonth(uid, month);
 
   const totals = db.prepare(`
     SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) AS income,
@@ -374,6 +440,8 @@ app.get('/api/stats', auth, wrap((req, res) => {
     balance: fromCents(balance),
     byCategory: byCategory.map((c) => ({ ...c, total: fromCents(c.total) })),
     trend,
+    upcoming: fromCents(upcoming.total),
+    upcoming_count: upcoming.count,
   });
 }));
 

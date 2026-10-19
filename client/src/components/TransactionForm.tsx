@@ -19,6 +19,7 @@ export default function TransactionForm({ tx, onClose }: Props) {
   // virement : la ligne négative est le compte de départ
   const [fromId, setFromId] = useState(tx?.transfer_id ? (tx.amount < 0 ? tx.account_id : tx.peer_account_id!) : accounts[0]?.id ?? 0);
   const [toId, setToId] = useState(tx?.transfer_id ? (tx.amount < 0 ? tx.peer_account_id! : tx.account_id) : accounts[1]?.id ?? 0);
+  const [repeat, setRepeat] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -39,6 +40,8 @@ export default function TransactionForm({ tx, onClose }: Props) {
       } else {
         const body = { type, amount: value, label, date, account_id: accountId, category_id: categoryId || null };
         if (tx) await api.put(`/transactions/${tx.id}`, body);
+        // récurrence : le serveur crée la règle et génère l'occurrence si la date est passée
+        else if (repeat) await api.post('/recurring', { ...body, frequency: 'monthly', start_date: date });
         else await api.post('/transactions', body);
       }
       refresh();
@@ -144,6 +147,13 @@ export default function TransactionForm({ tx, onClose }: Props) {
                 </select>
               </label>
             </div>
+
+            {!tx && (
+              <label className="check">
+                <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+                <span>Répéter chaque mois{repeat && date && ` (le ${Number(date.slice(8))})`}</span>
+              </label>
+            )}
           </>
         )}
 

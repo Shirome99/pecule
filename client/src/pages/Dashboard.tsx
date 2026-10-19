@@ -67,6 +67,12 @@ export default function Dashboard() {
             </ul>
           </>
         )}
+        {stats.upcoming_count > 0 && (
+          <p className="hero-upcoming">
+            À venir ce mois-ci : <strong className={stats.upcoming > 0 ? 'in' : ''}>{signed(stats.upcoming)}</strong>
+            <span className="muted small"> · {stats.upcoming_count} opération{stats.upcoming_count > 1 ? 's' : ''} récurrente{stats.upcoming_count > 1 ? 's' : ''}</span>
+          </p>
+        )}
       </section>
 
       <div className="grid-2">

@@ -2,6 +2,7 @@
 // Usage : npm run seed   →  demo@money.app / demo1234
 const bcrypt = require('bcryptjs');
 const { db, seedUser } = require('./db');
+const { generateRecurring } = require('./recurring');
 
 const EMAIL = 'demo@money.app';
 db.prepare('DELETE FROM users WHERE email = ?').run(EMAIL);
@@ -23,6 +24,21 @@ const insTransfer = db.prepare('INSERT INTO transactions (user_id, account_id, a
 const rnd = (a, b) => Math.round(a + Math.random() * (b - a));
 
 const today = new Date();
+const pad = (n) => String(n).padStart(2, '0');
+const start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+const startDate = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-01`;
+
+// opérations fixes : des récurrences mensuelles, générées depuis 6 mois
+const rec = db.prepare(`INSERT INTO recurring (user_id, account_id, category_id, amount, label, frequency, day, start_date)
+  VALUES (?,?,?,?,?,'monthly',?,?)`);
+rec.run(uid, acc, cat['Salaire'], 320000, 'Salaire', 1, startDate);
+rec.run(uid, acc, cat['Transport'], -8640, 'Navigo', 2, startDate);
+rec.run(uid, acc, cat['Logement'], -115000, 'Loyer', 3, startDate);
+rec.run(uid, acc, cat['Abonnements'], -1399, 'Netflix', 5, startDate);
+rec.run(uid, acc, cat['Abonnements'], -1999, 'Forfait mobile', 8, startDate);
+rec.run(uid, acc, cat['Abonnements'], -3500, 'Salle de sport', 25, startDate);
+generateRecurring(uid);
+
 db.transaction(() => {
   for (let i = 5; i >= 0; i--) {
     const base = new Date(today.getFullYear(), today.getMonth() - i, 1);
@@ -30,17 +46,12 @@ db.transaction(() => {
     const lastDay = i === 0 ? today.getDate() : new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
     const d = (day) => `${ym}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 
-    ins.run(uid, acc, cat['Salaire'], 320000, 'Salaire', d(1));
-    ins.run(uid, acc, cat['Logement'], -115000, 'Loyer', d(3));
-    ins.run(uid, acc, cat['Abonnements'], -1399, 'Netflix', d(5));
-    ins.run(uid, acc, cat['Abonnements'], -1999, 'Forfait mobile', d(8));
-    ins.run(uid, acc, cat['Transport'], -8640, 'Navigo', d(2));
     const tid = crypto.randomUUID(); // virement mensuel vers l'épargne
     insTransfer.run(uid, acc, -30000, 'Épargne du mois', d(2), tid);
     insTransfer.run(uid, livret, 30000, 'Épargne du mois', d(2), tid);
     for (let k = 0; k < 6; k++) ins.run(uid, acc, cat['Courses'], -rnd(2500, 9500), ['Carrefour', 'Monoprix', 'Franprix', 'Lidl'][k % 4], d(rnd(1, 28)));
     for (let k = 0; k < rnd(3, 6); k++) ins.run(uid, acc, cat['Restaurants'], -rnd(1200, 5500), ['Brasserie', 'Sushi', 'Burger', 'Pizzeria', 'Café'][k % 5], d(rnd(1, 28)));
-    for (let k = 0; k < rnd(1, 3); k++) ins.run(uid, acc, cat['Loisirs'], -rnd(1000, 6000), ['Cinéma', 'Concert', 'Salle de sport', 'Livres'][k % 4], d(rnd(1, 28)));
+    for (let k = 0; k < rnd(1, 3); k++) ins.run(uid, acc, cat['Loisirs'], -rnd(1000, 6000), ['Cinéma', 'Concert', 'Bowling', 'Livres'][k % 4], d(rnd(1, 28)));
     if (Math.random() > 0.4) ins.run(uid, acc, cat['Shopping'], -rnd(3000, 15000), 'Vêtements', d(rnd(10, 25)));
     if (Math.random() > 0.6) ins.run(uid, acc, cat['Santé'], -rnd(1500, 6000), 'Pharmacie', d(rnd(1, 28)));
   }
