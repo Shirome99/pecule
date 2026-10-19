@@ -1,6 +1,7 @@
 # Pécule — gestion de budget perso
 
-App web de money management : comptes, opérations, virements, opérations récurrentes, import CSV bancaire,
+App web de money management : comptes, opérations, virements, opérations récurrentes, prévision de fin de mois
+(« reste à dépenser par jour »), détection des abonnements, patrimoine net (placements et crédits), import CSV bancaire,
 budgets mensuels, objectifs d'épargne et tableau de bord. Responsive (sidebar sur desktop, barre d'onglets + bouton « + »
 sur mobile) et installable comme une app (PWA).
 
@@ -12,6 +13,11 @@ sur mobile) et installable comme une app (PWA).
 Les montants sont stockés en **centimes** (entiers) côté base pour éviter les erreurs d'arrondi ; l'API parle en euros décimaux.
 Une dépense est un montant négatif, un revenu un montant positif. Un virement = deux lignes liées par un `transfer_id`,
 exclues des revenus, dépenses, budgets et statistiques (mais comptées dans les soldes).
+
+Les comptes sont groupés en trois familles : **liquidités** (courant, épargne, espèces, carte), **placements** (PEA,
+assurance-vie, compte-titres, crypto, immobilier, autre — valorisés à la main) et **dettes** (crédit immo, crédit conso —
+capital restant dû calculé par le tableau d'amortissement). Seules les liquidités comptent dans les revenus, dépenses,
+budgets, prévisions et le « Solde total » de l'Aperçu.
 
 ## Lancer en développement
 
@@ -48,7 +54,10 @@ Vite (port 5180) : ta base de dev n'est jamais touchée.
 
 ## Production
 
-### Avec Docker (recommandé)
+### Avec Docker (non vérifié)
+
+> Docker est hors périmètre de la feuille de route actuelle (« sera traité plus tard »). Le `Dockerfile` et le
+> `docker-compose.yml` sont fournis mais n'ont jamais pu être construits sur la machine de développement.
 
 ```bash
 cp .env.example .env          # puis renseigne JWT_SECRET (openssl rand -hex 32)
@@ -106,19 +115,27 @@ Les erreurs renvoient `{ error: "message en français" }`.
 | GET | `/api/health` | Santé du serveur (Docker, supervision) |
 | POST | `/api/auth/register` · `/api/auth/login` | Inscription / connexion → `{ token, user }` (le login génère les récurrences dues) |
 | GET | `/api/me` | Utilisateur courant |
-| GET/POST/PUT/DELETE | `/api/accounts` | Comptes (le solde est calculé) |
+| GET/POST/PUT/DELETE | `/api/accounts` | Comptes ; `balance` = valeur actuelle selon la famille (`family`), + `invested`, `gain`, `gain_pct` pour un placement |
 | GET/POST/DELETE | `/api/categories` | Catégories (11 créées à l'inscription) |
 | GET/POST/PUT/DELETE | `/api/transactions` | Opérations ; filtres `month`, `from`, `to`, `account_id`, `category_id`, `q`, `limit` (max 2000). Modifier ou supprimer une ligne de virement agit sur les deux |
 | POST | `/api/transactions/bulk` | Import : `{ account_id, rows: [{ date, label, amount, category_id? }] }`, montants signés, 2000 lignes max, tout ou rien |
 | POST | `/api/transfers` | Virement `{ from_account_id, to_account_id, amount, date, label? }` |
 | PUT/DELETE | `/api/transfers/:transfer_id` | Modifier / supprimer un virement (les deux lignes) |
-| GET/POST | `/api/recurring` | Opérations récurrentes `{ account_id, category_id?, amount, type, label, frequency: monthly\|weekly\|yearly, day?, start_date, end_date? }` |
+| GET/POST | `/api/recurring` | Opérations récurrentes `{ account_id, category_id?, amount, type: expense\|income\|transfer, to_account_id? (virement), label, frequency: monthly\|weekly\|yearly, day?, start_date, end_date? }` |
 | PUT | `/api/recurring/:id` | Pause / reprise `{ paused: true\|false }` |
 | DELETE | `/api/recurring/:id` | Supprime la règle (les opérations passées restent) |
 | GET/POST/PUT/DELETE | `/api/goals` | Objectifs d'épargne `{ name, target_amount, target_date?, account_id?, saved? }` + progression et `per_month` calculés |
 | POST | `/api/goals/:id/contributions` | Versement (montant positif) ou retrait (négatif) sur un objectif sans compte lié |
 | GET/POST/DELETE | `/api/budgets?month=YYYY-MM` | Plafonds mensuels + dépensé du mois (hors virements) |
-| GET | `/api/stats?month=YYYY-MM` | Revenus, dépenses, solde, répartition, tendance 6 mois, `upcoming` (récurrences à venir du mois) |
+| GET | `/api/stats?month=YYYY-MM` | Revenus, dépenses, solde des liquidités, répartition, tendance 6 mois, `upcoming` (récurrences à venir du mois) |
+| GET | `/api/forecast?month=YYYY-MM` | Prévision du mois en cours : à venir, rythme des dépenses variables, `projected_end_balance`, `safe_to_spend`, `safe_per_day`, `overspend` ; mois passé → chiffres réels avec `is_past: true` ; mois futur → 400 |
+| GET | `/api/subscriptions` | Abonnements détectés (mensuels / annuels), coût annuel, prochaine date, `price_change` ; totaux mensuel et annuel |
+| POST | `/api/subscriptions/ignore` · `/api/subscriptions/track` | `{ key }` : ignorer un abonnement, ou le suivre comme opération récurrente |
+| GET/POST | `/api/accounts/:id/valuations` | Valorisations d'un placement `{ date, value }` (une par jour, la dernière fait foi) |
+| DELETE | `/api/valuations/:id` | Supprimer une valorisation |
+| GET/PUT | `/api/accounts/:id/loan` | Paramètres d'un crédit `{ principal, annual_rate, duration_months, first_payment_date, insurance_monthly? }` + mensualité, fin, coût |
+| GET | `/api/loans/:id/schedule` | Tableau d'amortissement |
+| GET | `/api/networth?months=24` | Fin de chaque mois : liquidités, placements, dettes, patrimoine net ; variations 1 et 12 mois |
 | GET | `/api/export.csv` | Export de toutes les opérations (format Excel FR, virements marqués « Virement ») |
 
 ## Suivi

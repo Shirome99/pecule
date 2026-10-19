@@ -1,6 +1,27 @@
 # Avancement
 
-> Deuxième feuille de route en cours (prévision, abonnements, patrimoine) : le résumé de fin de mission sera réécrit à la fin.
+## Résumé de fin de mission (2026-10-19, 2e feuille de route)
+
+**Ce qui marche** : les 10 tâches (0 à 9) sont faites. Nouveautés de cette version :
+- **Prévision** : « Tu peux dépenser X €/jour jusqu'au N », fin de mois estimée, détail du calcul. Les virements récurrents
+  ont été ajoutés pour l'épargne prévue.
+- **Abonnements** : page dédiée, détectés depuis les libellés bancaires, alerte de hausse de prix, « suivre comme récurrence ».
+- **Patrimoine net** : placements valorisés, crédits avec tableau d'amortissement, vue sur 24 mois. Placements et crédits
+  sont exclus des stats, des budgets et des prévisions.
+
+Dernière vérification : **76 tests API** (vitest), `tsc -b` et build OK, **32 tests Playwright** (1366×900, 390×844, PWA
+sur le build de prod, tests du parseur CSV), tous verts. Captures de chaque écran (27) dans `docs/screenshots/`.
+
+**Ce qui est bloqué** : rien dans le périmètre. Docker est hors périmètre (tâche 9) : le `Dockerfile` et le
+`docker-compose.yml` de la version précédente sont conservés mais **jamais construits** (Docker absent de la machine).
+
+**3 prochaines évolutions recommandées** :
+1. **Mensualités de crédit ventilées** : générer chaque échéance comme une opération récurrente, avec une part intérêts
+   (dépense) et une part capital (virement vers le compte de dette). Le budget et le patrimoine racontent alors la même histoire.
+2. **Découpage du bundle** (~700 Ko) : charger Recharts, la page Patrimoine et la modale d'import à la demande
+   (`React.lazy`). Le premier affichage sur mobile en profitera.
+3. **Sauvegarde / restauration** : export JSON complet (comptes, valorisations, crédits, règles, objectifs) et
+   sauvegarde planifiée de `money.db`. C'est indispensable avant d'y mettre de vraies données.
 
 ## Feuille de route
 
