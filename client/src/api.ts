@@ -48,6 +48,8 @@ export type Category = { id: number; name: string; kind: 'expense' | 'income'; c
 export type Transaction = {
   id: number; account_id: number; category_id: number | null; amount: number; label: string; date: string;
   category_name: string | null; category_color: string | null; category_icon: string | null; account_name: string;
+  /** virement : identifiant commun aux deux lignes + compte d'en face */
+  transfer_id: string | null; peer_account_id: number | null; peer_account_name: string | null;
 };
 export type Budget = { id: number; category_id: number; monthly_limit: number; name: string; color: string; icon: string; spent: number };
 export type Stats = {

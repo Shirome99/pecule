@@ -53,6 +53,16 @@ CREATE TABLE IF NOT EXISTS budgets (
 );
 `);
 
+// ---------- migrations idempotentes (bases existantes) ----------
+function addColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+// virements : les deux lignes partagent le même transfer_id
+addColumn('transactions', 'transfer_id', 'TEXT');
+db.exec('CREATE INDEX IF NOT EXISTS idx_tx_transfer ON transactions(transfer_id)');
+
 const DEFAULT_CATEGORIES = [
   ['Logement', 'expense', '#6366f1', '🏠'],
   ['Courses', 'expense', '#10b981', '🛒'],

@@ -12,13 +12,14 @@ seedUser(uid);
 
 const acc = db.prepare('SELECT id FROM accounts WHERE user_id = ?').get(uid).id;
 db.prepare('UPDATE accounts SET initial_balance = ? WHERE id = ?').run(150000, acc);
-db.prepare('INSERT INTO accounts (user_id, name, type, initial_balance) VALUES (?,?,?,?)')
+const livret = db.prepare('INSERT INTO accounts (user_id, name, type, initial_balance) VALUES (?,?,?,?)')
   .run(uid, 'Livret A', 'epargne', 500000).lastInsertRowid;
 
 const cat = Object.fromEntries(
   db.prepare('SELECT id, name FROM categories WHERE user_id = ?').all(uid).map((c) => [c.name, c.id])
 );
 const ins = db.prepare('INSERT INTO transactions (user_id, account_id, category_id, amount, label, date) VALUES (?,?,?,?,?,?)');
+const insTransfer = db.prepare('INSERT INTO transactions (user_id, account_id, amount, label, date, transfer_id) VALUES (?,?,?,?,?,?)');
 const rnd = (a, b) => Math.round(a + Math.random() * (b - a));
 
 const today = new Date();
@@ -34,6 +35,9 @@ db.transaction(() => {
     ins.run(uid, acc, cat['Abonnements'], -1399, 'Netflix', d(5));
     ins.run(uid, acc, cat['Abonnements'], -1999, 'Forfait mobile', d(8));
     ins.run(uid, acc, cat['Transport'], -8640, 'Navigo', d(2));
+    const tid = crypto.randomUUID(); // virement mensuel vers l'épargne
+    insTransfer.run(uid, acc, -30000, 'Épargne du mois', d(2), tid);
+    insTransfer.run(uid, livret, 30000, 'Épargne du mois', d(2), tid);
     for (let k = 0; k < 6; k++) ins.run(uid, acc, cat['Courses'], -rnd(2500, 9500), ['Carrefour', 'Monoprix', 'Franprix', 'Lidl'][k % 4], d(rnd(1, 28)));
     for (let k = 0; k < rnd(3, 6); k++) ins.run(uid, acc, cat['Restaurants'], -rnd(1200, 5500), ['Brasserie', 'Sushi', 'Burger', 'Pizzeria', 'Café'][k % 5], d(rnd(1, 28)));
     for (let k = 0; k < rnd(1, 3); k++) ins.run(uid, acc, cat['Loisirs'], -rnd(1000, 6000), ['Cinéma', 'Concert', 'Salle de sport', 'Livres'][k % 4], d(rnd(1, 28)));

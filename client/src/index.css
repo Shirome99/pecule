@@ -143,6 +143,8 @@ button, input, select { font: inherit; color: inherit; }
 .tx-amount { font-weight: 600; white-space: nowrap; }
 .tx-amount.in { color: var(--in); }
 .tx-amount.out { color: var(--out); }
+.tx-amount.transfer { color: var(--ink-2); }
+.tx-icon.transfer { background: var(--wash); color: var(--ink-2); font-size: 1.2rem; }
 
 .filters { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .filters input, .filters select { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; }
@@ -207,8 +209,9 @@ button.budget:hover { border-color: var(--ink-2); }
 .form-actions .btn { align-self: auto; }
 .form-actions .danger { margin-right: auto; }
 
-.segmented { display: grid; grid-template-columns: 1fr 1fr; background: var(--wash); border-radius: var(--radius-sm); padding: 3px; }
-.segmented button { border: 0; background: none; padding: 0.55rem; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--ink-2); }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--wash); border-radius: var(--radius-sm); padding: 3px; }
+.segmented button { border: 0; background: none; padding: 0.55rem; min-height: 44px; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--ink-2); }
+.segmented button:disabled { opacity: 0.4; cursor: default; }
 .segmented button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18,59,58,0.12); }
 .segmented button.on.expense { color: var(--out); }
 .segmented button.on.income { color: var(--in); }

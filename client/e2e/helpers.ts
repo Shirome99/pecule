@@ -22,3 +22,15 @@ export async function remaining(page: Page) {
 export async function goTo(page: Page, name: string) {
   await page.getByRole('navigation').getByRole('link', { name }).click();
 }
+
+/** Revenus et Dépenses du mois affichés sur l'Aperçu. */
+export async function monthTotals(page: Page) {
+  const split = page.locator('.hero-split');
+  const read = async (name: string) => parseEuros((await split.locator('div', { hasText: name }).locator('strong').textContent()) ?? '');
+  return { income: await read('Revenus'), expenses: await read('Dépenses') };
+}
+
+export async function accountBalance(page: Page, name: string) {
+  const row = page.locator('.account-row', { hasText: name });
+  return parseEuros((await row.locator('.tx-amount').textContent()) ?? '');
+}

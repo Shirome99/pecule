@@ -116,7 +116,13 @@ app.delete('/api/accounts/:id', auth, wrap((req, res) => {
   if (!owns('accounts', req.params.id, req.userId)) return res.status(404).json({ error: 'Compte introuvable' });
   const count = db.prepare('SELECT COUNT(*) n FROM accounts WHERE user_id = ?').get(req.userId).n;
   if (count <= 1) return res.status(400).json({ error: 'Il faut garder au moins un compte' });
-  db.prepare('DELETE FROM accounts WHERE id = ?').run(req.params.id);
+  db.transaction(() => {
+    // l'autre moitié des virements de ce compte devient une opération simple : son solde ne bouge pas
+    db.prepare(`UPDATE transactions SET transfer_id = NULL WHERE user_id = ? AND account_id <> ? AND transfer_id IN
+      (SELECT transfer_id FROM transactions WHERE account_id = ? AND transfer_id IS NOT NULL)`)
+      .run(req.userId, req.params.id, req.params.id);
+    db.prepare('DELETE FROM accounts WHERE id = ?').run(req.params.id);
+  })();
   res.json({ ok: true });
 }));
 
@@ -167,13 +173,18 @@ app.get('/api/transactions', auth, wrap((req, res) => {
   const params = [req.userId];
   if (month) { where.push("substr(t.date,1,7) = ?"); params.push(month); }
   if (account_id) { where.push('t.account_id = ?'); params.push(account_id); }
+  // sans filtre de compte, un virement n'apparaît qu'une fois (ligne de sortie)
+  else where.push('(t.transfer_id IS NULL OR t.amount < 0)');
   if (category_id) { where.push('t.category_id = ?'); params.push(category_id); }
   if (q) { where.push('t.label LIKE ?'); params.push(`%${q}%`); }
   const rows = db.prepare(`
-    SELECT t.*, c.name AS category_name, c.color AS category_color, c.icon AS category_icon, a.name AS account_name
+    SELECT t.*, c.name AS category_name, c.color AS category_color, c.icon AS category_icon, a.name AS account_name,
+      p.account_id AS peer_account_id, pa.name AS peer_account_name
     FROM transactions t
     LEFT JOIN categories c ON c.id = t.category_id
     JOIN accounts a ON a.id = t.account_id
+    LEFT JOIN transactions p ON p.transfer_id = t.transfer_id AND p.id <> t.id
+    LEFT JOIN accounts pa ON pa.id = p.account_id
     WHERE ${where.join(' AND ')}
     ORDER BY t.date DESC, t.id DESC
     LIMIT ?`).all(...params, Math.min(Number(limit) || 500, 2000));
@@ -192,10 +203,23 @@ app.post('/api/transactions', auth, wrap((req, res) => {
 }));
 
 app.put('/api/transactions/:id', auth, wrap((req, res) => {
-  if (!owns('transactions', req.params.id, req.userId)) return res.status(404).json({ error: 'Transaction introuvable' });
+  if (!owns('transactions', req.params.id, req.userId)) return res.status(404).json({ error: 'Opération introuvable' });
   const t = txSchema.parse(req.body);
   const err = checkTxRefs(t, req.userId);
   if (err) return res.status(400).json({ error: err });
+  const current = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id);
+  if (current.transfer_id) {
+    // ligne d'un virement : on répercute sur les deux lignes, le type est ignoré
+    const peer = getTransferLines(current.transfer_id, req.userId).find((l) => l.id !== current.id);
+    const isSource = current.amount < 0;
+    const result = saveTransfer(req.userId, {
+      from_account_id: isSource ? t.account_id : peer.account_id,
+      to_account_id: isSource ? peer.account_id : t.account_id,
+      amount: t.amount, date: t.date, label: t.label,
+    }, current.transfer_id);
+    if (result.error) return res.status(400).json({ error: result.error });
+    return res.json({ ok: true });
+  }
   const cents = toCents(t.amount) * (t.type === 'expense' ? -1 : 1);
   db.prepare('UPDATE transactions SET account_id=?, category_id=?, amount=?, label=?, date=? WHERE id=?')
     .run(t.account_id, t.category_id || null, cents, t.label, t.date, req.params.id);
@@ -203,8 +227,70 @@ app.put('/api/transactions/:id', auth, wrap((req, res) => {
 }));
 
 app.delete('/api/transactions/:id', auth, wrap((req, res) => {
-  if (!owns('transactions', req.params.id, req.userId)) return res.status(404).json({ error: 'Transaction introuvable' });
-  db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+  if (!owns('transactions', req.params.id, req.userId)) return res.status(404).json({ error: 'Opération introuvable' });
+  const { transfer_id } = db.prepare('SELECT transfer_id FROM transactions WHERE id = ?').get(req.params.id);
+  if (transfer_id) db.prepare('DELETE FROM transactions WHERE transfer_id = ? AND user_id = ?').run(transfer_id, req.userId);
+  else db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+}));
+
+// ---------- virements ----------
+const transferSchema = z.object({
+  from_account_id: z.coerce.number({ error: 'Choisis le compte de départ' }).int(),
+  to_account_id: z.coerce.number({ error: "Choisis le compte d'arrivée" }).int(),
+  amount: z.coerce.number().positive('Le montant doit être positif'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+  label: z.string().trim().optional(),
+});
+
+const getTransferLines = (transferId, userId) =>
+  db.prepare('SELECT * FROM transactions WHERE transfer_id = ? AND user_id = ? ORDER BY amount').all(transferId, userId);
+
+/** Crée (ou remplace si transferId est fourni) les deux lignes d'un virement, dans une transaction SQL. */
+function saveTransfer(userId, t, transferId = null) {
+  if (t.from_account_id === t.to_account_id) return { error: 'Choisis deux comptes différents' };
+  if (!owns('accounts', t.from_account_id, userId) || !owns('accounts', t.to_account_id, userId))
+    return { error: 'Compte invalide' };
+  const cents = toCents(t.amount);
+  const label = t.label || 'Virement';
+  if (transferId) {
+    const [out, inc] = getTransferLines(transferId, userId); // triées par montant : sortie puis entrée
+    const upd = db.prepare('UPDATE transactions SET account_id=?, category_id=NULL, amount=?, label=?, date=? WHERE id=?');
+    db.transaction(() => {
+      upd.run(t.from_account_id, -cents, label, t.date, out.id);
+      upd.run(t.to_account_id, cents, label, t.date, inc.id);
+    })();
+    return { transfer_id: transferId };
+  }
+  const id = crypto.randomUUID();
+  const ins = db.prepare(
+    'INSERT INTO transactions (user_id, account_id, category_id, amount, label, date, transfer_id) VALUES (?,?,NULL,?,?,?,?)'
+  );
+  db.transaction(() => {
+    ins.run(userId, t.from_account_id, -cents, label, t.date, id);
+    ins.run(userId, t.to_account_id, cents, label, t.date, id);
+  })();
+  return { transfer_id: id };
+}
+
+app.post('/api/transfers', auth, wrap((req, res) => {
+  const result = saveTransfer(req.userId, transferSchema.parse(req.body));
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.status(201).json(result);
+}));
+
+app.put('/api/transfers/:transferId', auth, wrap((req, res) => {
+  if (getTransferLines(req.params.transferId, req.userId).length === 0)
+    return res.status(404).json({ error: 'Virement introuvable' });
+  const result = saveTransfer(req.userId, transferSchema.parse(req.body), req.params.transferId);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({ ok: true });
+}));
+
+app.delete('/api/transfers/:transferId', auth, wrap((req, res) => {
+  const { changes } = db.prepare('DELETE FROM transactions WHERE transfer_id = ? AND user_id = ?')
+    .run(req.params.transferId, req.userId);
+  if (!changes) return res.status(404).json({ error: 'Virement introuvable' });
   res.json({ ok: true });
 }));
 
@@ -215,7 +301,7 @@ app.get('/api/budgets', auth, wrap((req, res) => {
     SELECT b.id, b.category_id, b.monthly_limit, c.name, c.color, c.icon,
       COALESCE((SELECT -SUM(t.amount) FROM transactions t
         WHERE t.category_id = b.category_id AND t.user_id = b.user_id
-          AND substr(t.date,1,7) = ? AND t.amount < 0), 0) AS spent
+          AND substr(t.date,1,7) = ? AND t.amount < 0 AND t.transfer_id IS NULL), 0) AS spent
     FROM budgets b JOIN categories c ON c.id = b.category_id
     WHERE b.user_id = ? ORDER BY c.name`).all(month, req.userId);
   res.json(rows.map((r) => ({ ...r, monthly_limit: fromCents(r.monthly_limit), spent: fromCents(r.spent) })));
@@ -247,7 +333,7 @@ app.get('/api/stats', auth, wrap((req, res) => {
   const totals = db.prepare(`
     SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) AS income,
            COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END),0) AS expenses
-    FROM transactions WHERE user_id = ? AND substr(date,1,7) = ?`).get(uid, month);
+    FROM transactions WHERE user_id = ? AND substr(date,1,7) = ? AND transfer_id IS NULL`).get(uid, month);
 
   const balance = db.prepare(`
     SELECT (SELECT COALESCE(SUM(initial_balance),0) FROM accounts WHERE user_id = ?)
@@ -257,7 +343,7 @@ app.get('/api/stats', auth, wrap((req, res) => {
     SELECT c.id, COALESCE(c.name,'Sans catégorie') AS name, COALESCE(c.color,'#9ca3af') AS color,
            COALESCE(c.icon,'•') AS icon, -SUM(t.amount) AS total
     FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
-    WHERE t.user_id = ? AND substr(t.date,1,7) = ? AND t.amount < 0
+    WHERE t.user_id = ? AND substr(t.date,1,7) = ? AND t.amount < 0 AND t.transfer_id IS NULL
     GROUP BY c.id ORDER BY total DESC`).all(uid, month);
 
   // 6 derniers mois glissants jusqu'au mois sélectionné
@@ -271,7 +357,7 @@ app.get('/api/stats', auth, wrap((req, res) => {
     SELECT substr(date,1,7) AS month,
       COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) AS income,
       COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END),0) AS expenses
-    FROM transactions WHERE user_id = ? AND substr(date,1,7) BETWEEN ? AND ?
+    FROM transactions WHERE user_id = ? AND substr(date,1,7) BETWEEN ? AND ? AND transfer_id IS NULL
     GROUP BY month`).all(uid, months[0], months[5]);
   const trendMap = Object.fromEntries(trendRows.map((r) => [r.month, r]));
   const trend = months.map((mo) => ({

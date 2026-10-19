@@ -1,10 +1,27 @@
 import { useState } from 'react';
 import type { Transaction } from '../api';
-import { signed } from '../format';
+import { money, signed } from '../format';
 import TransactionForm from './TransactionForm';
 
 export default function TxRow({ tx, showAccount = false }: { tx: Transaction; showAccount?: boolean }) {
   const [editing, setEditing] = useState(false);
+  if (tx.transfer_id) {
+    // virement : sens « départ → arrivée », montant neutre (ni revenu ni dépense)
+    const [from, to] = tx.amount < 0 ? [tx.account_name, tx.peer_account_name] : [tx.peer_account_name, tx.account_name];
+    return (
+      <li>
+        <button className="tx-row" onClick={() => setEditing(true)}>
+          <span className="tx-icon transfer" aria-hidden>⇄</span>
+          <span className="tx-main">
+            <span className="tx-label">{tx.label}</span>
+            <span className="tx-meta">{from} → {to}</span>
+          </span>
+          <span className="tx-amount transfer">{money(Math.abs(tx.amount))}</span>
+        </button>
+        {editing && <TransactionForm tx={tx} onClose={() => setEditing(false)} />}
+      </li>
+    );
+  }
   return (
     <li>
       <button className="tx-row" onClick={() => setEditing(true)}>

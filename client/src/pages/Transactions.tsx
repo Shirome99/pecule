@@ -27,8 +27,10 @@ export default function Transactions() {
     return [...m.entries()];
   }, [txs]);
 
-  const totalIn = (txs ?? []).filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-  const totalOut = (txs ?? []).filter((t) => t.amount < 0).reduce((s, t) => s - t.amount, 0);
+  // les virements ne sont ni des entrées ni des sorties (sauf vus depuis un compte précis)
+  const counted = (t: Transaction) => !t.transfer_id || !!accountId;
+  const totalIn = (txs ?? []).filter((t) => counted(t) && t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const totalOut = (txs ?? []).filter((t) => counted(t) && t.amount < 0).reduce((s, t) => s - t.amount, 0);
 
   async function exportCsv() {
     const res = await fetch('/api/export.csv', { headers: { Authorization: `Bearer ${getToken()}` } });
@@ -75,7 +77,7 @@ export default function Transactions() {
           <section key={date} className="day">
             <h2 className="day-head">
               <span>{dayLabel(date)}</span>
-              <span className="muted">{money(list.reduce((s, t) => s + t.amount, 0))}</span>
+              <span className="muted">{money(list.filter(counted).reduce((s, t) => s + t.amount, 0))}</span>
             </h2>
             <ul className="tx-list">{list.map((t) => <TxRow key={t.id} tx={t} showAccount={accounts.length > 1} />)}</ul>
           </section>
