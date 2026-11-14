@@ -56,6 +56,8 @@ export default defineConfig(({ mode }) => {
     // mode local : vrai moteur (SQLite + serveur embarqué) en mobile, module vide en web
     resolve: { alias: { '@pecule/local': fileURLToPath(new URL(mobile ? './src/local/mobile.ts' : './src/local/web.ts', import.meta.url)) } },
     build: mobile ? { outDir: 'dist-mobile' } : undefined,
+    // cache de dépendances séparé : les e2e lancent les serveurs web et mobile en même temps (sinon deux copies de React)
+    cacheDir: mobile ? 'node_modules/.vite-mobile' : undefined,
     // mode mobile en dev : dépendances pré-optimisées d'emblée (sinon Vite recharge la page à leur découverte)
     optimizeDeps: mobile ? { include: ['sql.js', '@capacitor/core', '@capacitor/app', '@capacitor/splash-screen', '@capacitor/haptics', '@capacitor/filesystem', '@capacitor/share', '@capacitor/local-notifications'] } : undefined,
     server: { proxy: mobile ? undefined : { '/api': process.env.API_PROXY || 'http://localhost:4000' } },
