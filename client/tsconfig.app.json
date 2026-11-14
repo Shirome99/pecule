@@ -7,6 +7,8 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
+    /* mode local de l'app mobile : vite.config.ts redirige l'alias vers src/local/web.ts en version web */
+    "paths": { "@pecule/local": ["./src/local/mobile.ts"] },
 
     /* Bundler mode */
     "moduleResolution": "bundler",

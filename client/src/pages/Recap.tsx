@@ -4,6 +4,7 @@ import { api, type Budget, type Goal, type Insight, type Networth, type Stats, t
 import { currentMonth, money, moneyRound, monthLabel, percent, shiftMonth, shortDate } from '../format';
 import BudgetBar from '../components/BudgetBar';
 import GoalCard from '../components/GoalCard';
+import { isNative } from '../native';
 
 type Data = {
   stats: Stats; previous: Stats; budgets: Budget[]; networth: Networth | null;
@@ -58,7 +59,8 @@ export default function Recap() {
           <p className="muted recap-brand">Pécule · récap mensuel</p>
           <h1>{title}</h1>
         </div>
-        <button className="btn primary no-print" onClick={() => window.print()}>Télécharger en PDF</button>
+        {/* l'impression n'existe pas dans l'app Android : le récap reste consultable à l'écran */}
+        {!isNative && <button className="btn primary no-print" onClick={() => window.print()}>Télécharger en PDF</button>}
       </header>
 
       <dl className="sheet-stats recap-stats">

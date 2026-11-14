@@ -3,6 +3,8 @@ import { defineConfig } from '@playwright/test';
 // Base dédiée aux tests e2e (ré-initialisée avec le compte démo à chaque lancement).
 const API_PORT = 4100;
 const WEB_PORT = 5180;
+// app mobile (vite --mode mobile) : aucune API, tout tourne dans la page
+const LOCAL_PORT = 5190;
 
 export default defineConfig({
   testDir: './e2e',
@@ -11,10 +13,12 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: `http://localhost:${WEB_PORT}`, locale: 'fr-FR', timezoneId: 'Europe/Paris' },
   projects: [
-    { name: 'desktop', testIgnore: /pwa\.spec/, use: { browserName: 'chromium', viewport: { width: 1366, height: 900 } } },
-    { name: 'mobile', testIgnore: /pwa\.spec/, use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    { name: 'desktop', testIgnore: /(pwa|local)\.spec/, use: { browserName: 'chromium', viewport: { width: 1366, height: 900 } } },
+    { name: 'mobile', testIgnore: /(pwa|local)\.spec/, use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
     // PWA : build de production (client/dist) servi par Express, comme en prod
     { name: 'pwa', testMatch: /pwa\.spec/, use: { browserName: 'chromium', baseURL: `http://localhost:${API_PORT}`, viewport: { width: 390, height: 844 } } },
+    // app mobile : données sur l'appareil (sql.js + serveur embarqué), sans API
+    { name: 'app-mobile', testMatch: /local\.spec/, use: { browserName: 'chromium', baseURL: `http://localhost:${LOCAL_PORT}`, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
   ],
   webServer: [
     {
@@ -29,6 +33,12 @@ export default defineConfig({
       command: `npx vite --port ${WEB_PORT} --strictPort`,
       env: { API_PROXY: `http://localhost:${API_PORT}` },
       url: `http://localhost:${WEB_PORT}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      command: `npx vite --mode mobile --port ${LOCAL_PORT} --strictPort`,
+      url: `http://localhost:${LOCAL_PORT}`,
       reuseExistingServer: false,
       timeout: 60_000,
     },

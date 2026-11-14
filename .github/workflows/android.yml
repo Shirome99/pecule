@@ -1,0 +1,67 @@
+# App Android : tests, build mobile et APK installable (onglet Actions → dernier run → artefact « pecule-android »).
+name: App Android
+
+on:
+  push:
+    branches: [main, mobile]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Dépendances
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+
+      - name: Tests de l'API (better-sqlite3, comme le serveur)
+        run: npm test --prefix server
+
+      - name: Tests de l'API sur sql.js (la base embarquée de l'app)
+        run: npm run test:sqljs --prefix server
+
+      - name: Build mobile (typage + Vite)
+        run: npm run build:mobile --prefix client
+
+      - name: Synchronisation Capacitor
+        working-directory: client
+        run: npx cap sync android
+
+      - name: APK
+        working-directory: client/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Renommer l'APK
+        run: cp client/android/app/build/outputs/apk/debug/app-debug.apk pecule-${{ github.sha }}.apk
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: pecule-android
+          path: pecule-${{ github.sha }}.apk
+          if-no-files-found: error
+          retention-days: 30

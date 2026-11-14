@@ -267,3 +267,36 @@ les URL restent identiques à l'octet près, y compris celles qui croisent les d
 - Tests : faux client injecté (`ai.setClient`) ; aucun appel réseau, aucune clé réelle. Côté e2e, l'API IA est simulée par
   `page.route` pour vérifier le parcours du ticket dans l'interface.
 **Écarté** : stocker les photos ; donner au modèle un accès SQL ou des outils d'écriture ; historique de conversation.
+
+## 2026-11-14 — Application mobile hors ligne
+**Contexte** : faire de Pécule une app mobile complète, **utilisable sans connexion**. Pas de Java ni de SDK Android
+sur la machine de développement.
+**Choix** :
+- **Capacitor 8** autour du client React existant : les 16 fonctionnalités et leurs tests sont conservés, avec des
+  plugins natifs (app, haptique, fichiers, partage, notifications locales, écran de démarrage ; barres système du cœur).
+- **Données sur l'appareil, sans serveur** : le code de `server/src` est exécuté dans l'app. esbuild (plugin Vite
+  `vite.backend.ts`, module virtuel `virtual:pecule-backend`) empaquette les routeurs inchangés avec des substituts
+  (`client/src/local/shims`) : better-sqlite3 → sql.js (SQLite WebAssembly), express → petit routeur sans HTTP
+  (`handle({ method, url, body })`), jsonwebtoken → jeton local, crypto/path → vides, zod → version ESM. Une seule
+  source de vérité métier.
+- Preuve d'équivalence : `npm run test:sqljs` rejoue **toute** la suite d'API (131 tests) sur l'adaptateur sql.js
+  (redirection de `require('better-sqlite3')`), plus 6 tests de l'adaptateur ; contre-test fait (adaptateur cassé → échec).
+- Piège sql.js : `export()` ferme et rouvre la base (requêtes préparées libérées, PRAGMA remis à zéro) → l'adaptateur
+  re-prépare à la demande (compteur de génération) et rejoue les PRAGMA (`foreign_keys`).
+- Persistance : après **chaque** requête qui a modifié la base (`takeDirty`), export puis écriture ; enregistrements
+  sérialisés et regroupés. Téléphone : fichier dans le dossier privé de l'app (écriture .tmp, suppression, renommage ;
+  relecture du .tmp si l'app est tuée entre les deux). Navigateur : IndexedDB. Après restauration ou effacement, la base
+  en mémoire est gelée pour qu'un enregistrement tardif n'écrase rien. `allowBackup` Android reste actif (sauvegarde
+  automatique du téléphone en filet de sécurité).
+- Pas d'email ni de mot de passe dans l'app : routes locales `/api/local/*` (profils de l'appareil, session, démo).
+  La confidentialité passe par un code à 4 chiffres (empreinte SHA-256 salée) : il protège l'ouverture, il ne chiffre pas.
+- Build web inchangé : l'alias `@pecule/local` pointe vers `src/local/web.ts` (vide) hors mode mobile, car Rolldown
+  n'élimine pas les `import()` placés derrière `if (LOCAL)` ; JS initial web 95 kB gzip.
+- Police Instrument Sans embarquée (@fontsource) en mobile : pas de Google Fonts hors ligne.
+- IA : SDK Anthropic appelé depuis l'app (`dangerouslyAllowBrowser`) avec la clé de l'utilisateur, gardée sur l'appareil.
+- APK construit par GitHub Actions (Ubuntu : JDK 21 et SDK Android préinstallés) plutôt qu'installer ~5 Go sur le poste.
+- Récap PDF : `window.print()` n'existe pas dans la WebView Android → bouton masqué dans l'app (récap consultable).
+- Ouvrir un profil ramène toujours à l'Aperçu (sinon « Changer de profil » depuis Réglages rouvrait sur Réglages).
+**Écarté** : réécriture React Native (des semaines pour retrouver l'existant) ; app connectée à un serveur hébergé (pas
+de données sans réseau) ; dupliquer la logique métier côté client ; @capacitor-community/sqlite (natif, ni testable dans
+le navigateur ni par la suite d'API) ; chiffrement de la base (la clé serait de toute façon sur l'appareil).

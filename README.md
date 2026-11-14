@@ -3,7 +3,7 @@
 App web de money management : comptes, opérations, virements, opérations récurrentes, prévision de fin de mois
 (« reste à dépenser par jour »), détection des abonnements, patrimoine net (placements et crédits), import CSV bancaire,
 budgets mensuels, objectifs d'épargne et tableau de bord. Responsive (sidebar sur desktop, barre d'onglets + bouton « + »
-sur mobile) et installable comme une app (PWA).
+sur mobile), installable comme une app (PWA), et disponible en **app mobile Android / iOS qui fonctionne sans connexion**.
 
 ## Stack
 
@@ -18,6 +18,46 @@ Les comptes sont groupés en trois familles : **liquidités** (courant, épargne
 assurance-vie, compte-titres, crypto, immobilier, autre — valorisés à la main) et **dettes** (crédit immo, crédit conso —
 capital restant dû calculé par le tableau d'amortissement). Seules les liquidités comptent dans les revenus, dépenses,
 budgets, prévisions et le « Solde total » de l'Aperçu.
+
+## Application mobile (Android / iOS) — fonctionne sans connexion
+
+`client/` se construit aussi en **app mobile** avec Capacitor. Dans l'app, il n'y a **pas de serveur** : le code de
+`server/src` (routes, calculs, validation) tourne tel quel dans l'app, sur une base SQLite embarquée (sql.js,
+WebAssembly). Toutes les données restent sur le téléphone, et toute l'app fonctionne hors ligne.
+
+- **Accueil** sans email ni mot de passe : un prénom suffit ; plusieurs profils possibles ; profil de démo (6 mois de données).
+- **Sauvegarde / restauration** d'un fichier `.sqlite` (feuille de partage : Drive, mail, Fichiers…), effacement complet.
+- **Code de verrouillage** à 4 chiffres (au lancement et après 30 s en arrière-plan).
+- **Rappel quotidien** (notification locale) qui ouvre directement « Nouvelle opération ».
+- **Natif** : bouton retour Android (ferme la fenêtre ouverte, puis revient en arrière), retour haptique, barres système
+  assorties au thème, affichage bord à bord, icône et écran de démarrage, export CSV par la feuille de partage.
+- **IA facultative** : clé API Anthropic saisie dans Réglages, gardée sur le téléphone (ces fonctions seules demandent Internet).
+
+### Obtenir l'APK sans rien installer
+
+Le workflow GitHub Actions « App Android » (`.github/workflows/android.yml`) lance les tests, construit l'app et produit
+un APK à chaque push : **Actions → dernier run → artefact `pecule-android`**. Sur le téléphone, ouvre le fichier .apk et
+autorise l'installation depuis cette source. C'est un APK de débogage (pas encore signé pour le Play Store).
+
+### Développer l'app mobile
+
+```bash
+cd server && npm install            # le serveur embarqué réutilise les dépendances du serveur (zod, bcryptjs…)
+cd ../client && npm install
+npm run dev:mobile                  # l'app mobile dans le navigateur (http://localhost:5173), sans API
+npm run cap:sync                    # build mobile (dist-mobile) + copie dans android/
+npm run android                     # ouvre Android Studio (JDK 21 + SDK Android requis) pour lancer sur un téléphone
+npm run icons:android               # régénère icônes et écran de démarrage depuis public/favicon.svg
+```
+
+iOS : `npx cap add ios` puis `npx cap open ios` sur un Mac avec Xcode (non fait ici : pas de Mac).
+
+Tests propres au mode mobile :
+
+```bash
+cd server && npm run test:sqljs                             # toute la suite d'API sur sql.js + tests de l'adaptateur
+cd client && npx playwright test --project app-mobile       # accueil, persistance, hors ligne, sauvegarde, code
+```
 
 ## Lancer en développement
 

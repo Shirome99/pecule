@@ -3,6 +3,8 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { currentMonth, shiftMonth } from '../format';
 import TransactionForm from './TransactionForm';
+import { LOCAL } from '../api';
+import { haptic } from '../native';
 
 const NAV = [
   { to: '/', label: 'Aperçu', icon: (
@@ -65,7 +67,7 @@ export default function Layout() {
         <div className="sidebar-foot">
           <span className="who">{user?.name}</span>
           <Link to="/reglages" className="link">Réglages</Link>
-          <button className="link" onClick={logout}>Se déconnecter</button>
+          <button className="link" onClick={logout}>{LOCAL ? 'Changer de profil' : 'Se déconnecter'}</button>
         </div>
       </aside>
 
@@ -75,7 +77,7 @@ export default function Layout() {
         </Suspense>
       </main>
 
-      <button className="fab" onClick={openNewTx} aria-label="Nouvelle opération">+</button>
+      <button className="fab" onClick={() => { void haptic('medium'); openNewTx(); }} aria-label="Nouvelle opération">+</button>
       {newTxOpen && <TransactionForm onClose={closeNewTx} />}
     </div>
   );

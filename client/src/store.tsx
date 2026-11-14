@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, cacheUser, getCachedUser, getToken, setToken, type Account, type AiStatus, type Category, type User } from './api';
 import { currentMonth } from './format';
+import { OPEN_NEW_TX } from './reminders';
 
 type Store = {
   user: User | null;
@@ -75,6 +76,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     window.addEventListener('online', refresh);
     return () => window.removeEventListener('online', refresh);
   }, [refresh]);
+
+  // notification de rappel touchée : formulaire « Nouvelle opération »
+  useEffect(() => {
+    const open = () => setNewTxOpen(true);
+    window.addEventListener(OPEN_NEW_TX, open);
+    return () => window.removeEventListener(OPEN_NEW_TX, open);
+  }, []);
 
   useEffect(() => {
     window.addEventListener('auth:logout', logout);

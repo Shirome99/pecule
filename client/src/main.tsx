@@ -1,13 +1,15 @@
-import { lazy, StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './index.css';
 import { StoreProvider, useStore } from './store';
 import { ToastProvider } from './components/Toast';
 import { applyTheme } from './theme';
+import { LOCAL } from './api';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import OfflineBanner from './components/OfflineBanner';
+import AppLock from './components/AppLock';
 
 // chaque page est un fichier JS à part, téléchargé à la première visite
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -23,13 +25,17 @@ const TagPage = lazy(() => import('./pages/TagPage'));
 const Year = lazy(() => import('./pages/Year'));
 const Recap = lazy(() => import('./pages/Recap'));
 const GroupPage = lazy(() => import('./pages/GroupPage'));
+const Welcome = lazy(() => import('./pages/Welcome'));
 
 applyTheme();
+
+// app mobile : police embarquée, intégration native, enregistrement de la base en arrière-plan
+if (LOCAL) void import('@pecule/local').then((m) => m.initMobile());
 
 function App() {
   const { user, ready } = useStore();
   if (!ready) return null;
-  if (!user) return <Login />;
+  if (!user) return LOCAL ? <Welcome /> : <Login />;
   return (
     <Routes>
       <Route element={<Layout />}>
@@ -56,8 +62,12 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <StoreProvider>
         <ToastProvider>
-          <OfflineBanner />
-          <App />
+          <AppLock>
+            <OfflineBanner />
+            <Suspense fallback={null}>
+              <App />
+            </Suspense>
+          </AppLock>
         </ToastProvider>
       </StoreProvider>
     </BrowserRouter>

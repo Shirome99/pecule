@@ -22,23 +22,37 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+/** App mobile : le « serveur » tourne sur l'appareil (src/local), sans réseau. */
+export const LOCAL = import.meta.env.VITE_LOCAL === '1';
+
+/** Envoie la requête au serveur, ou au moteur local de l'app mobile : même API, mêmes réponses. */
+async function send(method: string, url: string, body: unknown, token: string | null): Promise<{ status: number; data: unknown }> {
+  if (LOCAL) {
+    const { localFetch } = await import('@pecule/local');
+    const res = await localFetch(method, `/api${url}`, body, token).catch((err: Error) => {
+      throw new ApiError(500, `Impossible d’ouvrir tes données : ${err.message}`);
+    });
+    return { status: res.status, data: res.body ?? {} };
+  }
   const headers: Record<string, string> = {};
-  const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-
   const res = await fetch(`/api${url}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && token) {
+  return { status: res.status, data: await res.json().catch(() => ({})) };
+}
+
+async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  const token = getToken();
+  const { status, data } = await send(method, url, body, token);
+  if (status === 401 && token) {
     setToken(null);
     window.dispatchEvent(new Event('auth:logout'));
   }
-  if (!res.ok) throw new ApiError(res.status, data.error || 'Une erreur est survenue');
+  if (status < 200 || status >= 300) throw new ApiError(status, (data as { error?: string }).error || 'Une erreur est survenue');
   return data as T;
 }
 
@@ -49,8 +63,15 @@ export const api = {
   del: <T>(url: string) => request<T>('DELETE', url),
 };
 
-/** Télécharge toutes les opérations en CSV (le fichier se réimporte tel quel). */
+/** Télécharge toutes les opérations en CSV (le fichier se réimporte tel quel). Sur téléphone : feuille de partage. */
 export async function downloadExport() {
+  if (LOCAL) {
+    const [{ localFetch }, { saveFile }] = await Promise.all([import('@pecule/local'), import('./native')]);
+    const res = await localFetch('GET', '/api/export.csv', undefined, getToken());
+    if (res.status !== 200) throw new ApiError(res.status, 'Export impossible pour le moment');
+    await saveFile('operations.csv', String(res.body), 'text/csv');
+    return;
+  }
   const res = await fetch('/api/export.csv', { headers: { Authorization: `Bearer ${getToken()}` } });
   if (!res.ok) throw new ApiError(res.status, 'Export impossible pour le moment');
   const url = URL.createObjectURL(await res.blob());
@@ -62,6 +83,10 @@ export async function downloadExport() {
 // ---------- types ----------
 /** `onboarding` : compte neuf sans opération, le parcours de premier lancement remplace l'Aperçu */
 export type User = { id: number; email: string; name: string; currency: string; onboarding?: boolean };
+/** App mobile : profil présent sur l'appareil (écran d'accueil) */
+export type LocalProfile = { id: number; name: string; email: string; created_at: string; operations: number; is_demo: boolean };
+/** Profil créé sur l'appareil : son email technique n'est pas montré */
+export const isLocalEmail = (email?: string) => !!email?.endsWith('@pecule.local');
 export type AccountType =
   | 'courant' | 'epargne' | 'especes' | 'carte'
   | 'pea' | 'assurance_vie' | 'cto' | 'crypto' | 'immobilier' | 'autre_placement'

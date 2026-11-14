@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/seed-demo.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:sqljs": "vitest run --config vitest.sqljs.config.mjs"
   },
   "keywords": [],
   "author": "",

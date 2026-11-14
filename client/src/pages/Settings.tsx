@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { api, downloadExport, type User } from '../api';
+import { api, downloadExport, isLocalEmail, LOCAL, type User } from '../api';
+import LocalSettings from '../components/LocalSettings';
 import { useStore } from '../store';
 import { useToast } from '../components/Toast';
 import { getTheme, setTheme, type Theme } from '../theme';
@@ -78,13 +79,13 @@ export default function Settings() {
           <label className="field"><span>Prénom</span>
             <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" required />
           </label>
-          <p className="muted small">Email : {user?.email}</p>
+          {!isLocalEmail(user?.email) && <p className="muted small">Email : {user?.email}</p>}
           {nameError && <p className="form-error" role="alert">{nameError}</p>}
           <div className="form-actions"><button className="btn primary">Enregistrer</button></div>
         </form>
       </section>
 
-      <section className="panel">
+      {!LOCAL && <section className="panel">
         <h2>Mot de passe</h2>
         <form className="form" onSubmit={savePassword}>
           <label className="field"><span>Mot de passe actuel</span>
@@ -96,7 +97,7 @@ export default function Settings() {
           {pwdError && <p className="form-error" role="alert">{pwdError}</p>}
           <div className="form-actions"><button className="btn primary">Changer le mot de passe</button></div>
         </form>
-      </section>
+      </section>}
 
       <section className="panel">
         <div className="panel-head">
@@ -109,10 +110,12 @@ export default function Settings() {
       <section className="panel">
         <h2>Mes données</h2>
         <p className="muted">Toutes tes opérations dans un fichier CSV, lisible par un tableur et réimportable dans Pécule.</p>
-        <button className="btn ghost" onClick={exportCsv}>Télécharger l'export CSV</button>
+        <button className="btn ghost" onClick={exportCsv}>{LOCAL ? 'Exporter en CSV' : "Télécharger l'export CSV"}</button>
       </section>
 
-      <button className="btn ghost danger" onClick={logout}>Se déconnecter</button>
+      {LOCAL && <LocalSettings />}
+
+      <button className={LOCAL ? 'btn ghost' : 'btn ghost danger'} onClick={logout}>{LOCAL ? 'Changer de profil' : 'Se déconnecter'}</button>
     </div>
   );
 }

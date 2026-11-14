@@ -116,3 +116,16 @@ synchronisation bancaire, multi-devises, application native.
   enregistré, image non stockée. Assistant : boucle tool use avec 6 outils en lecture seule qui réutilisent les fonctions des
   routes (extraites en `view()`), utilisateur imposé par la session, 20 questions/jour, consentement mémorisé.
   7 tests API (SDK simulé : sans clé, Zod, isolation, limite, modèle) + 2 e2e (sans bouton IA ; ticket avec API simulée).
+
+## Phase 3 — Application mobile
+
+- [x] **Tâche 17 — App mobile Android / iOS utilisable sans connexion**
+  Capacitor 8 (`client/android`, `capacitor.config.ts`), build `npm run build:mobile` (dist-mobile). Serveur embarqué :
+  routeurs de `server/src` inchangés, empaquetés par esbuild avec substituts (sql.js, routeur sans HTTP), base enregistrée
+  sur l'appareil après chaque modification. Accueil par prénom / profils / démo, sauvegarde-restauration `.sqlite` par la
+  feuille de partage, effacement, code de verrouillage, rappel quotidien, bouton retour, haptique, bord à bord, icônes et
+  démarrage générés (`npm run icons:android`), clé IA dans Réglages. Workflow GitHub Actions → APK.
+  Tests : `npm run test:sqljs` (131 tests d'API + 6 de l'adaptateur sur sql.js), 4 e2e `app-mobile` (390×844, aucune
+  requête réseau vers une API).
+  **Non vérifié ici** : compilation Gradle et essai sur un vrai téléphone (ni JDK ni SDK Android sur la machine) — le
+  workflow GitHub Actions fait la compilation ; iOS non généré (Mac requis).

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pécule</string>
+    <string name="title_activity_main">Pécule</string>
+    <string name="package_name">app.pecule.budget</string>
+    <string name="custom_url_scheme">app.pecule.budget</string>
+</resources>

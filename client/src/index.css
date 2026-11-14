@@ -564,3 +564,77 @@ a.account-row { color: inherit; text-decoration: none; }
 .qa-a { white-space: pre-wrap; line-height: 1.5; }
 .qa-left { margin-right: auto; align-self: center; }
 @media (max-width: 720px) { .head-actions { flex-direction: column; align-items: stretch; } }
+
+/* ---------- app mobile (Capacitor) ---------- */
+/* toucher : pas de surlignage bleu ni de « tirer pour rafraîchir » parasite, retour visuel à l'appui */
+html { -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior-y: none; }
+.nav-link, .btn, .fab, .segmented button, .pin-keys button, .profile-card { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.btn:active:not(:disabled), .profile-card:active:not(:disabled) { transform: scale(0.98); }
+.fab:active { transform: scale(0.94); }
+.app-root[hidden] { display: none; }
+.warn-text { color: var(--warn); font-weight: 600; }
+.form-actions.start { justify-content: flex-start; flex-wrap: wrap; align-items: center; }
+
+/* accueil (profils sur l'appareil) */
+.welcome-points { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; color: #b9cbc7; }
+.welcome-points li::before { content: '✓'; color: var(--warn); font-weight: 700; margin-right: 0.5rem; }
+.welcome .auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.welcome-profiles { display: flex; flex-direction: column; gap: 0.5rem; }
+.welcome-profiles h1 { margin-bottom: 0.5rem; }
+.profile-card {
+  display: flex; align-items: center; gap: 0.85rem; width: 100%; min-height: 64px; padding: 0.7rem 0.9rem; text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; transition: transform 0.1s;
+}
+.profile-card:hover { border-color: var(--ink-2); }
+.profile-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.profile-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: var(--bg); font-weight: 700; flex: none; }
+.chev { color: var(--ink-2); font-size: 1.4rem; }
+.welcome-more { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; }
+.welcome-more .link { min-height: 44px; }
+.welcome-broken { border-color: var(--out); }
+
+/* code de verrouillage */
+.lock-screen {
+  position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow-y: auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;
+  padding: calc(2rem + env(safe-area-inset-top)) 1rem calc(2rem + env(safe-area-inset-bottom));
+}
+.pinpad { display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: center; width: min(320px, 100%); margin: 0 auto; }
+.pinpad h1 { font-size: 1.4rem; }
+.pin-dots { display: flex; gap: 1rem; margin-top: 0.5rem; }
+.pin-dots span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); transition: background 0.1s; }
+.pin-dots span.on { background: var(--ink); }
+.pin-dots.shake { animation: shake 0.3s; }
+@keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+@media (prefers-reduced-motion: reduce) { .pin-dots.shake { animation: none; } }
+.pin-error { min-height: 1.4em; }
+.pin-keys { display: grid; grid-template-columns: repeat(3, 72px); gap: 0.9rem 1.5rem; justify-content: center; }
+.pin-keys button {
+  width: 72px; height: 72px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface);
+  font-size: 1.6rem; font-weight: 500; cursor: pointer;
+}
+.pin-keys button:active { background: var(--wash); }
+
+/* interrupteur (rappel quotidien) */
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 44px; font-weight: 500; cursor: pointer; }
+.switch-row input {
+  appearance: none; flex: none; width: 48px; height: 28px; border-radius: 14px; background: var(--line); position: relative; cursor: pointer; margin: 0;
+  transition: background 0.15s;
+}
+.switch-row input::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.15s;
+}
+.switch-row input:checked { background: var(--in); }
+.switch-row input:checked::after { transform: translateX(20px); }
+
+@media (max-width: 720px) {
+  /* bord à bord : le contenu commence sous la barre d'état (encoche) */
+  .page { padding-top: calc(1.25rem + env(safe-area-inset-top)); }
+  .auth-side { padding-top: calc(2rem + env(safe-area-inset-top)); }
+  .welcome .auth-side { gap: 1.25rem; }
+  /* le logo n'est masqué que dans la barre d'onglets, pas sur l'accueil */
+  .auth .brand { display: flex; padding: 0; }
+}
