@@ -55,6 +55,8 @@ Pour **chaque** tâche de la feuille de route :
 5. Commit avec un message clair en français : `feat(virements): ...`, `fix(budgets): ...`, `test: ...`.
 6. Coche la tâche dans `PROGRESS.md` avec 2-3 lignes sur ce qui a été fait.
 
+**Reprise** : la mission est longue et peut s'étaler sur plusieurs sessions. Au début de chaque session, lis `PROGRESS.md` et `DECISIONS.md`, vérifie que les tests passent, puis reprends à la première tâche non cochée. Si `PROGRESS.md` n'existe pas, crée-le avec la liste des tâches 0 à 16 à cocher.
+
 Règles de décision :
 - **Ne me pose pas de question.** Quand un choix est ambigu, prends l'option la plus simple qui respecte les règles de la section 2 et note-la dans `DECISIONS.md` (date, contexte, choix, alternative écartée).
 - **Migrations** : le schéma utilise `CREATE TABLE IF NOT EXISTS`. Pour ajouter une colonne à une table existante, ajoute une migration idempotente dans `db.js` (vérifier via `PRAGMA table_info` avant `ALTER TABLE`). Une base existante ne doit jamais être perdue.
@@ -64,8 +66,9 @@ Règles de décision :
 
 ## 4. Feuille de route (dans l'ordre)
 
-### Tâche 0 — Socle : git + tests
+### Tâche 0 — Socle : git, structure et tests
 - `git init` s'il n'y a pas de dépôt, `.gitignore` (node_modules, dist, *.db*, .env).
+- `server/src/index.js` va beaucoup grossir : découpe-le **avant** d'ajouter des fonctionnalités. Un fichier par domaine dans `server/src/routes/` (auth, accounts, categories, transactions, budgets, stats), les helpers partagés (`auth`, `owns`, `wrap`, `toCents`, `fromCents`) dans `server/src/lib.js`, et la logique de calcul dans des modules purs sans accès à la base. Les routes doivent rester identiques, sans changement de comportement.
 - Serveur : ajoute `vitest` + `supertest`, script `npm test`. La base de test utilise `DB_PATH=:memory:` (déjà supporté par `db.js`).
 - Couvre l'existant : inscription/connexion, refus sans token, CRUD opérations, **un utilisateur ne peut pas lire ni modifier les données d'un autre**, calcul des soldes, `/api/stats`, budgets.
 - Client : ajoute Playwright (`npm run test:e2e`) avec un scénario : connexion démo → ajout d'une dépense → elle apparaît dans Opérations → le « Reste ce mois-ci » diminue. Lance-le en 1366×900 et en 390×844.
@@ -160,9 +163,68 @@ But : suivre tout ce que je possède moins ce que je dois, et son évolution dan
 - Pas de Docker ni de déploiement pour l'instant : ce sera traité plus tard.
 - **Fini quand** : le démarrage en production sans `JWT_SECRET` échoue avec un message clair, la 6e tentative de connexion en une minute renvoie 429, et les tests passent toujours.
 
+---
+
+## Phase 2 — Améliorations (à commencer seulement quand les tâches 0 à 9 sont faites ou documentées comme bloquées)
+
+### Tâche 10 — Finitions UX et performance
+- **Code-splitting** : chaque page est chargée avec `React.lazy`, et Recharts n'est chargé que sur les pages qui ont un graphique. Objectif : moins de 250 kB gzip pour le JS initial, mesuré par le build (aujourd'hui environ 190 kB gzip dans un seul fichier de 644 kB).
+- **Annuler** : après une suppression d'opération, de budget ou de catégorie, un toast « Opération supprimée. Annuler » reste 6 secondes. Implémentation : suppression côté serveur différée, ou réinsertion à l'identique. Choisis et note ton choix dans `DECISIONS.md`. Le composant Toast est réutilisable (succès, erreur, action).
+- **Premier lancement** : pour un compte neuf sans opération, un parcours en 3 écrans remplace l'Aperçu vide : solde actuel du compte courant, salaire mensuel (qui crée une récurrence), un premier budget à choisir parmi les 3 catégories les plus courantes. Chaque écran a un bouton « Passer ».
+- **Thème** : choix Clair / Sombre / Système dans un nouvel écran « Réglages » (accessible depuis Comptes sur mobile et depuis la sidebar sur desktop), avec le choix gardé dans `localStorage`. Le même écran permet de modifier son prénom, son mot de passe et de télécharger l'export CSV.
+- **Raccourcis desktop** : `N` ouvre une nouvelle opération, `/` place le curseur dans la recherche, `←` / `→` changent de mois. Ils sont désactivés quand le curseur est dans un champ.
+- **Accessibilité** : ajouter `@axe-core/playwright` aux tests e2e ; aucune violation `serious` ou `critical` sur les pages principales, en clair et en sombre.
+- **Fini quand** : la taille du bundle respecte l'objectif, l'annulation est testée en e2e, le parcours de premier lancement est testé en e2e, et le contrôle axe passe.
+
+### Tâche 11 — Règles de catégorisation et tags
+- Table `rules` : user_id, motif (texte contenu dans le libellé normalisé, avec la même normalisation qu'à la tâche 4), catégorie, priorité. Les règles s'appliquent à la création d'une opération sans catégorie, à l'import CSV et aux récurrences.
+- **Suggestion de règle** : quand l'utilisateur donne la même catégorie à 2 opérations dont le libellé normalisé commence pareil, afficher le toast « Toujours classer "BASIC FIT" en Loisirs ? » avec un bouton Créer la règle.
+- Écran « Règles » dans Réglages : liste, modification, suppression, et bouton « Appliquer aux opérations sans catégorie » qui indique combien d'opérations ont été classées.
+- **Tags** : table `tags` + table de liaison `transaction_tags`. Champ de saisie dans le formulaire d'opération (autocomplétion, `#` facultatif), filtre par tag dans Opérations, et page de tag qui affiche le total, la période couverte et la répartition par catégorie (exemple : « #vacances-maroc : 1 840 € du 2 au 16 août »).
+- **Fini quand** : tests de priorité entre règles, de non-écrasement d'une catégorie choisie à la main, et de calcul du total par tag.
+
+### Tâche 12 — Comparaisons automatiques (insights)
+- Module pur `server/src/insights.js` qui renvoie au plus 3 constats pour un mois donné, triés par importance en euros :
+  - Catégorie en hausse ou en baisse : écart de plus de 30 % **et** de plus de 40 € par rapport à la moyenne des 3 mois précédents.
+  - Dépense inhabituelle : une opération supérieure à 3 fois la médiane de sa catégorie sur 6 mois.
+  - Budget en voie de dépassement : au rythme actuel, le budget sera dépassé avant la fin du mois (indiquer la date estimée).
+  - Bonne nouvelle : mois en cours le moins dépensier des 6 derniers mois, à date équivalente.
+- Pas de constat quand l'historique est inférieur à 2 mois. Chaque constat est une phrase courte avec les chiffres, et un lien vers les opérations filtrées.
+- Endpoint `GET /api/insights?month=` ; une carte sur l'Aperçu, masquée s'il n'y a rien à dire.
+- **Fini quand** : tests unitaires pour chaque type de constat, plus un test de non-déclenchement sous les seuils.
+
+### Tâche 13 — Calendrier et vue annuelle
+- **Calendrier du mois** (dans Opérations, bascule Liste / Calendrier) : grille des jours, intensité de couleur selon les dépenses du jour (échelle séquentielle construite à partir de `--out`), total sous chaque jour, et un clic qui affiche les opérations du jour. Sur mobile, cases compactes sans total, et le détail s'ouvre dans un panneau en bas.
+- **Vue annuelle** (nouvelle page accessible depuis l'Aperçu) : sélecteur d'année ; revenus, dépenses et épargne de l'année ; taux d'épargne ; tableau catégories × mois avec les totaux, défilant horizontalement sur mobile avec la colonne catégorie fixe ; et les 5 plus grosses dépenses de l'année.
+- Endpoint `GET /api/stats/year?year=`.
+- **Fini quand** : les totaux de la vue annuelle sont égaux à la somme des 12 `/api/stats` mensuels (test).
+
+### Tâche 14 — Récap mensuel imprimable
+- Page `/recap/:month` : patrimoine net et sa variation, revenus et dépenses, taux d'épargne, top 5 des catégories avec leur évolution, budgets tenus ou dépassés, nouveaux abonnements et hausses de prix, avancement des objectifs, et constats du mois (tâche 12).
+- Feuille de style `@media print` propre (pas de navigation, pas de bouton, sauts de page maîtrisés) pour que « Imprimer → Enregistrer en PDF » donne un document A4 lisible. Bouton « Télécharger en PDF » qui appelle `window.print()`. Pas de dépendance PDF côté serveur.
+- Sur l'Aperçu, du 1er au 5 du mois, une bannière « Ton récap de septembre est prêt ».
+- **Fini quand** : test e2e qui génère le PDF avec `page.pdf()` de Playwright et vérifie qu'il fait au plus 2 pages.
+
+### Tâche 15 — Dépenses partagées
+- Groupes (coloc, couple, voyage) : table `groups` et table `group_members`. Les membres sont des **noms libres**, sans compte utilisateur : l'utilisateur est le seul à se connecter.
+- Dépense de groupe : qui a payé, montant, répartition (parts égales, montants personnalisés ou pourcentages). Si c'est l'utilisateur qui a payé, une opération normale est aussi créée sur son compte pour **sa part seulement**, et le reste est une créance.
+- Module pur `server/src/settle.js` : soldes de chaque membre et **liste minimale de remboursements** (« Sarah doit 42 € à Yass »). Bouton « Marquer comme remboursé » qui enregistre le remboursement.
+- **Fini quand** : tests de `settle.js` (somme des soldes = 0 au centime près, répartition inégale, arrondis répartis sans perte de centime, nombre de remboursements ≤ nombre de membres − 1).
+
+### Tâche 16 — Fonctions IA (facultatives, avec l'API Claude)
+Ces fonctions ne s'activent que si `ANTHROPIC_API_KEY` est défini dans l'environnement du serveur. Sans clé, aucun bouton IA n'est affiché et rien ne plante. Le modèle se configure avec `ANTHROPIC_MODEL`, par défaut `claude-sonnet-5-5`. Utilise le SDK officiel `@anthropic-ai/sdk` ; la clé ne va **jamais** au client.
+- **Ticket en photo** : dans le formulaire d'opération, bouton « Scanner un ticket » (sur mobile, il ouvre l'appareil photo avec `<input type="file" accept="image/*" capture="environment">`). L'image est redimensionnée côté client (1600 px max), envoyée à `POST /api/ai/receipt`, et le modèle renvoie du JSON validé par Zod : montant, date, marchand, catégorie suggérée parmi celles de l'utilisateur. Le formulaire est **prérempli, jamais enregistré automatiquement**. L'image n'est pas stockée.
+- **Assistant** : panneau « Poser une question » (« combien j'ai dépensé en resto depuis janvier ? », « je peux me permettre 1 200 € de vacances en décembre ? »). Utilise le *tool use* : le modèle n'écrit jamais de SQL et n'accède qu'à des outils en **lecture seule**, déjà limités à `req.userId` (`get_stats`, `search_transactions`, `get_budgets`, `get_forecast`, `get_networth`, `get_subscriptions`), qui réutilisent les modules existants. Les réponses citent les chiffres utilisés. Limite : 20 questions par jour et par utilisateur.
+- Avant la première utilisation, une mention claire : « Tes données financières concernées sont envoyées à Anthropic pour générer la réponse. » L'utilisateur doit l'accepter, et ce choix est mémorisé.
+- Tests : mocker le SDK ; vérifier la validation Zod d'une réponse mal formée, l'isolation utilisateur des outils, et l'absence des fonctions IA sans clé.
+- **Fini quand** : tous les tests ci-dessus passent sans clé API réelle.
+
+### Pas maintenant
+Ne pas faire, même s'il reste du temps : Docker et déploiement, synchronisation bancaire automatique (DSP2), multi-devises, application native.
+
 ## 5. Fin de mission
 
-Quand toutes les tâches sont faites (ou bloquées et documentées) :
+Quand toutes les tâches sont faites (ou bloquées et documentées), ou si tu dois t'arrêter avant, fais toujours ceci pour que le travail puisse reprendre proprement :
 1. Relance toute la suite de tests et le build une dernière fois.
 2. Lance `npm run seed`, démarre l'app et parcours chaque écran en 1366 px et en 390 px avec Playwright ; enregistre les captures dans `docs/screenshots/`.
 3. Écris en haut de `PROGRESS.md` un résumé : ce qui marche, ce qui est bloqué, et les 3 prochaines évolutions que tu recommandes.
