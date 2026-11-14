@@ -1,3 +1,6 @@
 * text=auto eol=lf
 *.png binary
 docs/*.csv binary
+# scripts Windows (gradlew.bat) : fins de ligne CRLF obligatoires
+*.bat text eol=crlf
+*.jar binary
